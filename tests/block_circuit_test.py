@@ -1,4 +1,9 @@
+import os
+import sys
 import asyncio
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from utils.fetch_block_data import fetch_block_data
 from utils.rift_lib import create_prover_toml_witness, Block, compute_block_hash
 from utils.noir_lib import (

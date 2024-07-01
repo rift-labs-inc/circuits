@@ -6,7 +6,7 @@ mod sha256_merkle;
 
 //  TODO: Make these real
 global payment_key_hash: Field = 0x0;
-global block_key_hash: Field = 0x1;
+global block_key_hash: Field = 0x2a06e0724cf3bf56203acdbd36591c0bdeff54eecbb4b4b73df0caff8a3ee02c;
 
 // Verifies a rift payment utxo end-to-end 
 fn main(
