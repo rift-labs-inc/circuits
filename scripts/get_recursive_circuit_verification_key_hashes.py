@@ -20,16 +20,32 @@ from utils.noir_lib import (
 )
 
 
-async def main():
+async def get_block_vk_hash(BB: str):
     compilation_dir = "circuits/block_verification"
-    BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
     vk = tempfile.NamedTemporaryFile()
     print("Compiling block verification circuit...")
     await compile_project(compilation_dir)
     print("Building verification key...")
     await build_raw_verification_key(vk.name, compilation_dir, BB)
     vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
-    print("Verification Key Data", vk_data)
+    print("[BLOCK] Verification Key Hash:", vk_data[0])
+
+
+async def get_lp_hash_verification_vk_hash(BB: str):
+    compilation_dir = "circuits/lp_hash_verification"
+    vk = tempfile.NamedTemporaryFile()
+    print("Compiling liquidity provider hash circuit...")
+    await compile_project(compilation_dir)
+    print("Building verification key...")
+    await build_raw_verification_key(vk.name, compilation_dir, BB)
+    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
+    print("[LP HASH] Verification Key Hash:", vk_data[0])
+
+async def main():
+    BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
+    #await get_block_vk_hash(BB)
+    await get_lp_hash_verification_vk_hash(BB)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

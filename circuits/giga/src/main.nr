@@ -5,8 +5,8 @@ mod sha256_circuit_hashes;
 mod sha256_merkle;
 
 //  TODO: Make these real
-global payment_key_hash: Field = 0x0;
-global block_key_hash: Field = 0x2a06e0724cf3bf56203acdbd36591c0bdeff54eecbb4b4b73df0caff8a3ee02c;
+global payment_verification_circuit_key_hash: Field = 0x0;
+global block_verification_circuit_key_hash: Field = 0x2a06e0724cf3bf56203acdbd36591c0bdeff54eecbb4b4b73df0caff8a3ee02c;
 
 // Verifies a rift payment utxo end-to-end 
 fn main(
@@ -17,8 +17,9 @@ fn main(
 	merkle_root_encoded: [Field; 2],
     proposed_merkle_proof: [sha256_merkle::MerkleProofStep; 20],
     // Payment Verification
-    lp_balances_hash: pub [Field; 2],
+    lp_reservation_hash: pub [Field; 2],
     swap_output: pub Field,
+	order_nonce_encoded: pub [Field; 2],
     // Block Verification
 	proposed_block_hash_encoded: pub [Field; 2],
     safe_block_hash_encoded: pub [Field; 2],
@@ -64,8 +65,10 @@ fn main(
     let mut payment_pub_input: [Field] = &[
         txn_block_hash_encoded[0],
         txn_block_hash_encoded[1],
-        lp_balances_hash[0],
-        lp_balances_hash[1],
+        lp_reservation_hash[0],
+        lp_reservation_hash[1],
+		order_nonce_encoded[0],
+		order_nonce_encoded[1],
         swap_output
     ];
 
@@ -73,7 +76,7 @@ fn main(
         payment_verification_key.as_slice(),
         payment_proof.as_slice(),
         payment_pub_input,
-        payment_key_hash
+        payment_verification_circuit_key_hash
     );
 
     // Block Verification
@@ -92,7 +95,7 @@ fn main(
         block_verification_key.as_slice(),
         block_proof.as_slice(),
         block_pub_input,
-        block_key_hash
+        block_verification_circuit_key_hash
     );
 }
 
