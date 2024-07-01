@@ -1,7 +1,7 @@
 use dep::std;
 use dep::rift_lib::byte_lib;
 
-mod txn_circuit_hashes;
+mod sha256_circuit_hashes;
 mod sha256_merkle;
 
 //  TODO: Make these real
@@ -48,7 +48,7 @@ fn main(
 		txn_hash_verification_key.as_slice(),
 		txn_hash_proof.as_slice(),
 		intermidiate_hash_and_txn_data_encoded.as_slice(),
-		txn_circuit_hashes::CIRCUIT_HASH_LIST[txn_hash_vk_hash_index]
+		sha256_circuit_hashes::CIRCUIT_HASH_LIST[txn_hash_vk_hash_index]
 	);
 
 
