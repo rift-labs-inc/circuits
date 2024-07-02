@@ -35,7 +35,7 @@ fn build_hashable_chunk(
 fn main(
 	lp_reservation_hash_encoded: pub [Field; 2],
 	lp_reservation_data_encoded: pub [[Field; 4]; rift_lib::constants::MAX_LIQUIDITY_PROVIDERS],
-	lp_count: pub u64
+	lp_count: pub u32
 ) {
 	let mut intermediate_vault_hash: [u8; 32] = [0; 32];
 	for i in 0..rift_lib::constants::MAX_LIQUIDITY_PROVIDERS {
