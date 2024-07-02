@@ -1,5 +1,5 @@
 [package]
-name = "paymenet_validator"
+name = "payment_verification"
 type = "bin"
 authors = [""]
 compiler_version = ">=0.26.0"
