@@ -14,7 +14,7 @@ global lp_hash_verification_key_hash: Field = 0x0;
 fn main(
 	// Transaction Hash Verification
 	txn_hash_encoded: pub [Field; 2],
-	intermidiate_hash_encoded_and_txn_data: [Field; constants::MAX_ENCODED_CHUNKS + 2],
+	intermediate_hash_encoded_and_txn_data: [Field; constants::MAX_ENCODED_CHUNKS + 2],
 	// Transaction Inclusion Verification
 	proposed_merkle_root_encoded: [Field; 2],
     proposed_merkle_proof: [sha256_merkle::MerkleProofStep; 20],
@@ -43,16 +43,16 @@ fn main(
 ) {
 	// Transaction Hash Verification
 	let txn_hash = byte_lib::decode_field_encoded_hash(txn_hash_encoded);
-	let intermidiate_txn_hash = byte_lib::decode_field_encoded_hash([
-		intermidiate_hash_encoded_and_txn_data[0],
-		intermidiate_hash_encoded_and_txn_data[1]
+	let intermediate_txn_hash = byte_lib::decode_field_encoded_hash([
+		intermediate_hash_encoded_and_txn_data[0],
+		intermediate_hash_encoded_and_txn_data[1]
 	]);
-	assert(std::hash::sha256(intermidiate_txn_hash) == txn_hash);
+	assert(std::hash::sha256(intermediate_txn_hash) == txn_hash);
 
 	std::verify_proof(
 		txn_hash_verification_key.as_slice(),
 		txn_hash_proof.as_slice(),
-		intermidiate_hash_encoded_and_txn_data.as_slice(),
+		intermediate_hash_encoded_and_txn_data.as_slice(),
 		sha256_circuit_hashes::CIRCUIT_HASH_LIST[txn_hash_vk_hash_index]
 	);
 
@@ -85,7 +85,7 @@ fn main(
 
 	let mut payment_pub_input: [Field; constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4) + 2 + 1] = [0 as Field; 929];
 	for i in 0..constants::MAX_ENCODED_CHUNKS {
-		payment_pub_input[i] = intermidiate_hash_encoded_and_txn_data[i+2];
+		payment_pub_input[i] = intermediate_hash_encoded_and_txn_data[i+2];
 	}
 	for i in 0..(constants::MAX_LIQUIDITY_PROVIDERS*4) {
 		payment_pub_input[i+constants::MAX_ENCODED_CHUNKS] = liquidity_providers_flat_encoded[i];
