@@ -1,9 +1,0 @@
-[package]
-name = "txn_validator"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.26.0"
-
-[dependencies]
-
-rift_lib = { path = "../lib" }
