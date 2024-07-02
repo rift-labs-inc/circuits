@@ -229,7 +229,7 @@ pub fn assert_payment_utxos_exist(
 			// Only p2wpkh is supported
 			assert(sig_counter == 22);
 
-			let scriptSig = byte_lib::grab_bytes_be_conditional(
+			let lockingScript = byte_lib::grab_bytes_be_conditional(
 				COMP_TIME_22,
 				txn_data,
 				data_pointer,
@@ -237,7 +237,7 @@ pub fn assert_payment_utxos_exist(
 			);
 
 			assert(value == reserved_liquidity_providers[i].amount_reserved);
-			assert(scriptSig == reserved_liquidity_providers[i].script_pub_key);
+			assert(lockingScript == reserved_liquidity_providers[i].script_pub_key);
 			calculated_payout += value / reserved_liquidity_providers[i].btc_exchange_rate;
 
 			// TODO: Here, assert that all the LP data exists
@@ -259,26 +259,42 @@ pub fn assert_payment_utxos_exist(
 	assert(txn_data[data_pointer] == OP_PUSHBYTES_32);
 	data_pointer += 1;
 
-	let scriptSig = byte_lib::grab_bytes_be_conditional(
+	let inscribedOrderNonce = byte_lib::grab_bytes_be_conditional(
 		COMP_TIME_32,
 		txn_data,
 		data_pointer,
 		|i|  i < sig_counter as u64
 	);
-	assert(scriptSig == order_nonce);
+	assert(inscribedOrderNonce == order_nonce);
 	// theres witness data and lock time past this point but we don't need it now so ignore
+}
+
+fn decode_txn_data(txn_data_encoded: [Field; constants::MAX_ENCODED_CHUNKS]) -> [u8; constants::MAX_TXN_BYTES] {
+	let mut txn_data: [u8; constants::MAX_TXN_BYTES] = [0; constants::MAX_TXN_BYTES];
+	for i in 0..constants::MAX_ENCODED_CHUNKS {
+		let chunk = txn_data_encoded[i].to_be_bytes(31);
+		for j in 0..31 {
+			txn_data[(i*31)+j] = chunk[j];
+		}
+	}
+	txn_data
 }
 
 
 #[recursive]
 fn main(
-	txn_data: pub [u8; constants::MAX_TXN_BYTES],
+	txn_data_encoded: pub [Field; constants::MAX_ENCODED_CHUNKS],
 	liquidity_providers_encoded: pub [[Field; 4]; constants::MAX_LIQUIDITY_PROVIDERS],
 	order_nonce_encoded: pub [Field; 2],
 	expected_payout: pub u64
 ) {
 	let liquidity_providers = decode_liqudity_providers(liquidity_providers_encoded);
-	assert_payment_utxos_exist(txn_data, liquidity_providers, byte_lib::decode_field_encoded_hash(order_nonce_encoded), expected_payout);
+	assert_payment_utxos_exist(
+		txn_data_encoded,
+		liquidity_providers,
+		byte_lib::decode_field_encoded_hash(order_nonce_encoded),
+		expected_payout
+	);
 }
 
 

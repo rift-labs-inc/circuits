@@ -1,5 +1,6 @@
 use dep::std;
 use dep::rift_lib::byte_lib;
+use dep::rift_lib::constants;
 
 mod sha256_circuit_hashes;
 mod sha256_merkle;
@@ -16,10 +17,11 @@ fn main(
 	// Transaction Inclusion Verification
 	merkle_root_encoded: [Field; 2],
     proposed_merkle_proof: [sha256_merkle::MerkleProofStep; 20],
-    // Payment Verification
+    // Payment Verification + Lp Hash Verification
     lp_reservation_hash: pub [Field; 2],
-    swap_output: pub Field,
 	order_nonce_encoded: pub [Field; 2],
+	expected_payout: pub u64,
+	liquidity_providers_encoded: [[Field; 4]; constants::MAX_LIQUIDITY_PROVIDERS],
     // Block Verification
 	proposed_block_hash_encoded: pub [Field; 2],
     safe_block_hash_encoded: pub [Field; 2],
@@ -59,7 +61,10 @@ fn main(
 		txn_hash,
 		proposed_merkle_proof
 	);
+	
+	// TODO_ALPINE: Add lp hash circuit verification 
 
+	// TODO_ALPINE: Update this to support updated verification circuit
 	
     // Payment Verification
     let mut payment_pub_input: [Field] = &[
@@ -69,7 +74,6 @@ fn main(
         lp_reservation_hash[1],
 		order_nonce_encoded[0],
 		order_nonce_encoded[1],
-        swap_output
     ];
 
     std::verify_proof(
