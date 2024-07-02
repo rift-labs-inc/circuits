@@ -1,7 +1,6 @@
 use dep::std;
 use dep::rift_lib;
 
-global MAX_LIQUIDITY_PROVIDERS: u64 = 200;
 
 // Solidity encodes all our lp data in 32 byte chunks, effectively do that here 
 fn build_hashable_chunk(
@@ -35,11 +34,11 @@ fn build_hashable_chunk(
 #[recursive]
 fn main(
 	lp_reservation_hash_encoded: pub [Field; 2],
-	lp_reservation_data_encoded: pub [[Field; 4]; MAX_LIQUIDITY_PROVIDERS],
+	lp_reservation_data_encoded: pub [[Field; 4]; rift_lib::constants::MAX_LIQUIDITY_PROVIDERS],
 	lp_count: pub u64
 ) {
 	let mut intermediate_vault_hash: [u8; 32] = [0; 32];
-	for i in 0..MAX_LIQUIDITY_PROVIDERS {
+	for i in 0..rift_lib::constants::MAX_LIQUIDITY_PROVIDERS {
 		if i < lp_count {
 			let lp_data: [Field; 4] = lp_reservation_data_encoded[i];
 			let hashable_chunk: [u8; 128] = build_hashable_chunk(lp_data, intermediate_vault_hash);
@@ -70,7 +69,7 @@ fn test_chunk_builder() {
 #[test]
 // comment out #[recursive] above main to run this test
 fn test_main() {
-	let mut lp_data: [[Field; 4]; MAX_LIQUIDITY_PROVIDERS] = [[0; 4]; MAX_LIQUIDITY_PROVIDERS];
+	let mut lp_data: [[Field; 4]; rift_lib::constants::MAX_LIQUIDITY_PROVIDERS] = [[0; 4]; rift_lib::constants::MAX_LIQUIDITY_PROVIDERS];
 	lp_data[0][0] = 0x0000000000000000000000000000000000000000000000000de0b6b3a76400;
 	lp_data[0][1] = 0x00000000000000000000000000000000000000000000000000000000000000;
 	lp_data[0][2] = 0x0037664749bc041993bf56b9e8b233b9ddcc8abc7742f5a82f015a0d2256e0;

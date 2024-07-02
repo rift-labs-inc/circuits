@@ -5,8 +5,7 @@ use dep::rift_lib::constants;
 // current maxes, could be changed
 // p2pkh -> 25 bytes, p2wpkh -> 22 bytes
 global MAX_SCRIPTSIG_SIZE: u64 = 22;
-global MAX_OUTPUT_COUNT: u64 = 10; //1000
-global MAX_INPUT_COUNT: u64 = 1000; //1000
+global MAX_INPUT_COUNT: u64 = 1; //1000
 
 global MAX_SCRIPT_INSCRPITION_SIZE: u64 = 80;
 
@@ -50,7 +49,7 @@ struct MinifiedTxn {
     in_counter: u64,			// 1-9 bytes CompInt for the number of inputs
     // inputs: Vec<TxIn>,				// A vector of TxIn structs
     out_counter: u64,			// 1-9 bytes CompInt the number of outputs
-    outputs: BoundedVec<TxOut, MAX_OUTPUT_COUNT>,// A vector of TxOut structs
+    outputs: BoundedVec<TxOut, constants::MAX_LIQUIDITY_PROVIDERS>,// A vector of TxOut structs
     // witnesses: Option<Vec<Witness>>,// Optional, present if there is witness data
     // lock_time: u32,					// 4 bytes for the lock_time
 }
@@ -60,7 +59,7 @@ impl MinifiedTxn {
         version: u32,
         in_counter: u64,
         out_counter: u64,
-        outputs: BoundedVec<TxOut, MAX_OUTPUT_COUNT>,
+        outputs: BoundedVec<TxOut, constants::MAX_LIQUIDITY_PROVIDERS>,
     ) -> MinifiedTxn {
         MinifiedTxn { version, in_counter, out_counter, outputs }
     }
@@ -76,7 +75,7 @@ global COMP_TIME_6: CompConstant<6> = CompConstant::new();
 global COMP_TIME_7: CompConstant<7> = CompConstant::new();
 global COMP_TIME_8: CompConstant<8> = CompConstant::new();
 global COMP_TIME_9: CompConstant<9> = CompConstant::new();
-global COMP_TIME_25: CompConstant<25> = CompConstant::new();
+global COMP_TIME_22: CompConstant<25> = CompConstant::new();
 global COMP_TIME_80: CompConstant<80> = CompConstant::new();
 
 
@@ -132,22 +131,19 @@ fn arr_to_bvec<T, N>(arr: [T; N]) -> BoundedVec<T, N> {
 }
 
 
-pub fn decode_txn(txn_data: [u8; constants::MAX_TXN_BYTES]) -> MinifiedTxn {
+pub fn assert_payment_utxos_exist(txn_data: [u8; constants::MAX_TXN_BYTES], utxos: [u64; constants::MAX_LIQUIDITY_PROVIDERS]) {
 
     let version: u32 = to_int(byte_lib::grab_bytes_le(COMP_TIME_4, txn_data, 0)) as u32;
     let mut is_segwit = false;
     if (txn_data[4] == 0x00) & (txn_data[5] >= 0x01) {
         is_segwit = true;
     }
-    let mut data_pointer = 4;
-    if is_segwit {
-        data_pointer = 6;
-    }
+	assert(is_segwit);
+    let mut data_pointer = 6; //segwit marker and flag
 	let (input_counter, input_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
     data_pointer += input_counter_byte_len as u64;
-	assert(input_counter < MAX_INPUT_COUNT);
+	assert(input_counter <= MAX_INPUT_COUNT);
 
-    // println(input_counter);
 	// we would extract inputs here if we cared about them
 	for i in 0..MAX_INPUT_COUNT {
 		if i  < input_counter as u64 {
@@ -158,39 +154,40 @@ pub fn decode_txn(txn_data: [u8; constants::MAX_TXN_BYTES]) -> MinifiedTxn {
 		}
 	}
 
-    let mut output: BoundedVec<TxOut, MAX_OUTPUT_COUNT> = BoundedVec::new();
 	let (output_counter, output_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
-	assert(output_counter < MAX_OUTPUT_COUNT);
+	assert(output_counter <= constants::MAX_LIQUIDITY_PROVIDERS);
     data_pointer += output_counter_byte_len as u64;
-	for i in 0..MAX_OUTPUT_COUNT {
-		if i  < output_counter as u64 {
+	for i in 0..constants::MAX_LIQUIDITY_PROVIDERS {
+		if i < output_counter-2 as u64 {
 			// for every output item, determine how much of the slice it's consuming
 			let value: u64 = to_int(byte_lib::grab_bytes_le(COMP_TIME_8, txn_data, data_pointer)) as u64;
 			data_pointer += AMOUNT_LEN as u64;
 			let (sig_counter, sig_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
 			data_pointer += sig_counter_byte_len as u64;
+
+			// Only p2wpkh is supported
+			assert(sig_counter == 22);
+
 			let scriptSig = byte_lib::grab_bytes_be_conditional(
-				COMP_TIME_25,
+				COMP_TIME_22,
 				txn_data,
 				data_pointer,
 				|i|  i < sig_counter as u64
 			);
-			output.push(TxOut {
-				value: value,
-				txout_script_length: sig_counter as u8,
-				txout_script: scriptSig
-			});
+			// WIP
+
+
+
+			// TODO: Here, assert that all the LP data exists
 			data_pointer += sig_counter;
 		}
 	}
-	// theres witness data and lock time past this point but we don't need it now so ignore
+	// Now we're at the end of the payment outputs, the second to last output should always be the order nonce inscription (give last output so that the user can pay miner fee
 
-    MinifiedTxn::new( 
-		version,				// 4 bytes: for the version number
-		input_counter,			// 1-9 bytes CompInt for the number of inputs
-		output_counter,			// 1-9 bytes CompInt the number of outputs
-		output 
-	)
+
+
+
+	// theres witness data and lock time past this point but we don't need it now so ignore
 }
 
 
@@ -216,7 +213,7 @@ pub fn encode_tx_out_parts(value: [u8; 5], txout_script_length: u8, txout_script
 
 // each field in encoded_outputs is one of the above ^
 // TODO: This needs to be reworked so you don't have to pass a ton of empty bytes in the worst case, ideally some ids/tagging
-pub fn assert_outputs_exist_in_txn(txn_data: [u8; constants::MAX_TXN_BYTES], encoded_outputs: [Field; MAX_OUTPUT_COUNT]) {
+pub fn assert_outputs_exist_in_txn(txn_data: [u8; constants::MAX_TXN_BYTES], encoded_outputs: [Field; constants::MAX_LIQUIDITY_PROVIDERS]) {
 	let decoded_outputs = decode_txn(txn_data).outputs;
 	for i in 0..decoded_outputs.len() {
 		let output = decoded_outputs.get(i);
@@ -229,7 +226,7 @@ pub fn assert_outputs_exist_in_txn(txn_data: [u8; constants::MAX_TXN_BYTES], enc
 }
 
 #[recursive]
-fn main(txn_data: [u8; constants::MAX_TXN_BYTES], encoded_outputs: [Field; MAX_OUTPUT_COUNT]){
+fn main(txn_data: [u8; constants::MAX_TXN_BYTES], encoded_outputs: [Field; constants::MAX_LIQUIDITY_PROVIDERS]){
 	assert_outputs_exist_in_txn(txn_data, encoded_outputs);
 }
 
