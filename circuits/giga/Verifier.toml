@@ -1,0 +1,10 @@
+block_height_delta = ""
+expected_payout = ""
+lp_reservation_hash = ["", ""]
+order_nonce_encoded = ["", ""]
+proposed_block_hash_encoded = ["", ""]
+retarget_block_hash_encoded = ["", ""]
+safe_block_hash_encoded = ["", ""]
+safe_block_height = ""
+txn_block_hash_encoded = ["", ""]
+txn_hash_encoded = ["", ""]

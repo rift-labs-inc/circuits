@@ -8,30 +8,21 @@ mod sha256_merkle;
 //  TODO: Make these real
 global payment_verification_circuit_key_hash: Field = 0x0;
 global block_verification_circuit_key_hash: Field = 0x2a06e0724cf3bf56203acdbd36591c0bdeff54eecbb4b4b73df0caff8a3ee02c;
-
-fn decode_txn_data(txn_data_encoded: [Field; constants::MAX_ENCODED_CHUNKS]) -> [u8; constants::MAX_TXN_BYTES] {
-	let mut txn_data: [u8; constants::MAX_TXN_BYTES] = [0; constants::MAX_TXN_BYTES];
-	for i in 0..constants::MAX_ENCODED_CHUNKS {
-		let chunk = txn_data_encoded[i].to_be_bytes(31);
-		for j in 0..31 {
-			txn_data[(i*31)+j] = chunk[j];
-		}
-	}
-	txn_data
-}
+global lp_hash_verification_key_hash: Field = 0x0;
 
 // Verifies a rift payment utxo end-to-end 
 fn main(
 	// Transaction Hash Verification
 	txn_hash_encoded: pub [Field; 2],
-	intermidiate_hash_encoded_and_txn_data: [Field; constants::MAX_TXN_BYTES + 2],
+	intermidiate_hash_encoded_and_txn_data: [Field; constants::MAX_ENCODED_CHUNKS + 2],
 	// Transaction Inclusion Verification
-	merkle_root_encoded: [Field; 2],
+	proposed_merkle_root_encoded: [Field; 2],
     proposed_merkle_proof: [sha256_merkle::MerkleProofStep; 20],
     // Payment Verification + Lp Hash Verification
-    lp_reservation_hash: pub [Field; 2],
+    lp_reservation_hash_encoded: pub [Field; 2],
 	order_nonce_encoded: pub [Field; 2],
 	expected_payout: pub u64,
+	lp_count: pub u64,
 	liquidity_providers_flat_encoded: [Field; constants::MAX_LIQUIDITY_PROVIDERS*4],
     // Block Verification
 	proposed_block_hash_encoded: pub [Field; 2],
@@ -39,9 +30,9 @@ fn main(
     retarget_block_hash_encoded: pub [Field; 2],
     safe_block_height: pub u64,
     block_height_delta: pub u64,
-    // Shared
-	txn_block_hash_encoded: pub [Field; 2],
     // Proof Data
+	lp_hash_verification_key: [Field; 114],
+	lp_hash_proof: [Field; 93],
 	txn_hash_verification_key: [Field; 114],
 	txn_hash_proof: [Field; 93],
 	txn_hash_vk_hash_index: u64,
@@ -68,28 +59,46 @@ fn main(
 
 	// Transaction Inclusion Verification
 	sha256_merkle::assert_merkle_proof_equality(
-		byte_lib::decode_field_encoded_hash(merkle_root_encoded),
+		byte_lib::decode_field_encoded_hash(proposed_merkle_root_encoded),
 		txn_hash,
 		proposed_merkle_proof
 	);
-	
-	// TODO_ALPINE: Add lp hash circuit verification 
 
-	// TODO_ALPINE: Update this to support updated verification circuit
+	// LP Hash Verification
+	let mut lp_hash_pub_input: [Field; constants::MAX_LIQUIDITY_PROVIDERS*4 + 3] = [0 as Field; 703];
+
+	lp_hash_pub_input[0] = lp_reservation_hash_encoded[0];
+	lp_hash_pub_input[1] = lp_reservation_hash_encoded[1];
+	for i in 0..constants::MAX_LIQUIDITY_PROVIDERS*4{
+		lp_hash_pub_input[i+2] = liquidity_providers_flat_encoded[i];
+	}
+	lp_hash_pub_input[constants::MAX_LIQUIDITY_PROVIDERS*4 + 2] = lp_count as Field;
+
+	std::verify_proof(
+		lp_hash_verification_key.as_slice(),
+		lp_hash_proof.as_slice(),
+		lp_hash_pub_input.as_slice(),
+		lp_hash_verification_key_hash
+	);
 	
     // Payment Verification
 
-	// Extract just the txn data bytes 
-	let (_, temp_txn_data) = intermidiate_hash_encoded_and_txn_data.as_slice().pop_front();
-	let (_, txn_data) = temp_txn_data.pop_front();
+	let mut payment_pub_input: [Field; constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4) + 2 + 1] = [0 as Field; 929];
+	for i in 0..constants::MAX_ENCODED_CHUNKS {
+		payment_pub_input[i] = intermidiate_hash_encoded_and_txn_data[i+2];
+	}
+	for i in 0..(constants::MAX_LIQUIDITY_PROVIDERS*4) {
+		payment_pub_input[i+constants::MAX_ENCODED_CHUNKS] = liquidity_providers_flat_encoded[i];
+	}
+	payment_pub_input[constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4)] = order_nonce_encoded[0];
+	payment_pub_input[constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4) + 1] = order_nonce_encoded[1];
+	payment_pub_input[constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4) + 2] = expected_payout as Field;
+
 	
     std::verify_proof(
         payment_verification_key.as_slice(),
         payment_proof.as_slice(),
-		txn_data
-			.append(liquidity_providers_flat_encoded.as_slice())
-			.append(order_nonce_encoded.as_slice())
-			.append(&[expected_payout as Field]),
+		payment_pub_input.as_slice(),
         payment_verification_circuit_key_hash
     );
 
@@ -102,7 +111,9 @@ fn main(
 		retarget_block_hash_encoded[0],
 		retarget_block_hash_encoded[1],
 		safe_block_height as Field,
-		block_height_delta as Field
+		block_height_delta as Field,
+		proposed_merkle_root_encoded[0],
+		proposed_merkle_root_encoded[1]
 	];
 
     std::verify_proof(
