@@ -210,7 +210,7 @@ pub fn assert_payment_utxos_exist(
 	}
 
 	let (output_counter, output_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
-	assert(output_counter <= constants::MAX_LIQUIDITY_PROVIDERS);
+	assert(output_counter <= constants::MAX_LIQUIDITY_PROVIDERS as u64);
     data_pointer += output_counter_byte_len as u64;
 
 	let mut calculated_payout: u64 = 0;
@@ -219,7 +219,7 @@ pub fn assert_payment_utxos_exist(
 	// the second to last output is the order nonce (inscription)
 	// the last output is the miner fee
 	for i in 0..constants::MAX_LIQUIDITY_PROVIDERS {
-		if i < output_counter-2 as u64 {
+		if i < (output_counter-2) as u32 {
 			// for every output item, determine how much of the slice it's consuming
 			let value: u64 = to_int(byte_lib::grab_bytes_le(COMP_TIME_8, txn_data, data_pointer)) as u64;
 			data_pointer += AMOUNT_LEN as u64;
@@ -270,13 +270,27 @@ pub fn assert_payment_utxos_exist(
 }
 
 
+fn assert_txn_data_is_equal(txn_data_encoded: [Field; constants::MAX_ENCODED_CHUNKS], txn_data: [u8; constants::MAX_TXN_BYTES]){
+	for i in 0..constants::MAX_ENCODED_CHUNKS {
+		let chunk: [u8; 31] = txn_data_encoded[i].to_be_bytes(31).as_array();
+		for j in 0..31 {
+			let txn_data_decoded = txn_data[i*31+j];
+			assert(txn_data_decoded == chunk[j]);
+		}
+	}
+}
+
+
 #[recursive]
 fn main(
-	txn_data: pub [u8; constants::MAX_TXN_BYTES],
+	txn_data_encoded: pub [Field; constants::MAX_ENCODED_CHUNKS],
 	liquidity_providers_encoded: pub [[Field; 4]; constants::MAX_LIQUIDITY_PROVIDERS],
 	order_nonce_encoded: pub [Field; 2],
-	expected_payout: pub u64
+	expected_payout: pub u64,
+	txn_data: [u8; constants::MAX_TXN_BYTES]
 ) {
+	assert_txn_data_is_equal(txn_data_encoded, txn_data);
+	
 	let liquidity_providers = decode_liqudity_providers(liquidity_providers_encoded);
 	assert_payment_utxos_exist(
 		txn_data,
