@@ -23,6 +23,8 @@ fn main(
     retarget_block_hash_encoded: pub [Field; 2],
     safe_block_height: pub u64,
     block_height_delta: pub u64,
+	// this is used to verify the merkle root used by giga is actually in the block being proven
+	proposed_merkle_root_encoded: pub [Field; 2],
     proposed_block: Block,
     safe_block: Block,
     retarget_block: Block,
@@ -30,6 +32,8 @@ fn main(
     inner_blocks: [Block; INNER_BLOCK_COUNT]
 ) {
     //------------------ MAIN CIRCUIT ------------------ //
+
+	assert(byte_lib::decode_field_encoded_hash(proposed_merkle_root_encoded) == proposed_block.merkle_root);
 
     assert(block_height_delta as u64 <= INNER_BLOCK_COUNT); // verify proposed block height delta
     let proposed_block_hash = byte_lib::decode_field_encoded_hash(proposed_block_hash_encoded);
