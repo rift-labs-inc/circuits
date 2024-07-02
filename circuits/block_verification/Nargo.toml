@@ -1,5 +1,5 @@
 [package]
-name = "circuits"
+name = "block_verification"
 type = "bin"
 authors = [""]
 compiler_version = ">=0.23.0"
