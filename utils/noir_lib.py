@@ -26,7 +26,7 @@ async def run_command(command: str, cwd: str, strict_failure = True) -> bytes:
             raise Exception(f"`{command}` failed with {stderr.decode().strip()}")
     return stdout
 
-def split_hex_into_31_byte_chunks(hexstr):
+def split_hex_into_31_byte_chunks(hexstr: str):
     return ["0x" + hexstr[i:i+62] for i in range(0, len(hexstr), 62)]
 
 def pad_list(input_list, target_length, pad_item):
