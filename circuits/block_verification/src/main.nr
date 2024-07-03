@@ -5,6 +5,7 @@ use dep::rift_lib::byte_lib;
 global TARGET_PERIOD: u32 = 2016; // blocks between difficulty retargets
 global TARGET_TIMESPAN: u32 = 1209600; // goal time of 10 minutes per block * 2016 blocks
 global INNER_BLOCK_COUNT: u64 = 30; // if this is zero, then there's one safe block
+global CONFIRMATION_BLOCK_DELTA: u64 = 6;
 
 struct Block {
     height: u64,
@@ -18,6 +19,7 @@ struct Block {
 
 #[recursive]
 fn main(
+    confirmation_block_hash_encoded: pub [Field; 2],
     proposed_block_hash_encoded: pub [Field; 2],
     safe_block_hash_encoded: pub [Field; 2],
     retarget_block_hash_encoded: pub [Field; 2],
@@ -29,7 +31,9 @@ fn main(
     safe_block: Block,
     retarget_block: Block,
     inner_block_hashes_encoded: [[Field; 2]; INNER_BLOCK_COUNT],
-    inner_blocks: [Block; INNER_BLOCK_COUNT]
+    inner_blocks: [Block; INNER_BLOCK_COUNT],
+    confirmation_block_hashes_encoded: [[Field; 2]; CONFIRMATION_BLOCK_DELTA],
+    confirmation_blocks: [Block; CONFIRMATION_BLOCK_DELTA]
 ) {
     //------------------ MAIN CIRCUIT ------------------ //
 
@@ -69,6 +73,21 @@ fn main(
         retarget_block,
         last_block_height
     );
+
+    last_block_hash = proposed_block_hash;
+    for i in 0..CONFIRMATION_BLOCK_DELTA {
+        let confirmation_block_hash = byte_lib::decode_field_encoded_hash(confirmation_block_hashes_encoded[i]);
+        verify_block(
+            confirmation_block_hash,
+            last_block_hash,
+            confirmation_blocks[i],
+            retarget_block,
+            last_block_height
+        );
+        last_block_height += 1;
+        last_block_hash = confirmation_block_hash;
+    }
+    assert(byte_lib::decode_field_encoded_hash(confirmation_block_hash_encoded) == last_block_hash);
 }
 
 fn verify_block(

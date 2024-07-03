@@ -25,6 +25,7 @@ fn main(
 	lp_count: pub u64,
 	liquidity_providers_flat_encoded: [Field; constants::MAX_LIQUIDITY_PROVIDERS*4],
     // Block Verification
+	confirmation_block_hash_encoded: pub [Field; 2],
 	proposed_block_hash_encoded: pub [Field; 2],
     safe_block_hash_encoded: pub [Field; 2],
     retarget_block_hash_encoded: pub [Field; 2],
