@@ -4,7 +4,7 @@ use dep::rift_lib::byte_lib;
 
 global TARGET_PERIOD: u32 = 2016; // blocks between difficulty retargets
 global TARGET_TIMESPAN: u32 = 1209600; // goal time of 10 minutes per block * 2016 blocks
-global INNER_BLOCK_COUNT: u64 = 30; // if this is zero, then there's one safe block
+global INNER_BLOCK_COUNT: u64 = 24; // if this is zero, then there's one safe block
 global CONFIRMATION_BLOCK_DELTA: u64 = 6;
 
 struct Block {
