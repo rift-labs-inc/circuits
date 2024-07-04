@@ -92,22 +92,27 @@ async def test_multiple_blocks(safe_block_height: int, retarget_height: int, num
 
     # [1] fetch block data
     print(f"Fetching block data from height {safe_block_height + 1} to {safe_block_height + 1 + num_inner_blocks}...")
-    inner_blocks = []
-    for height in range(safe_block_height + 1, safe_block_height + 1 + num_inner_blocks):
-        block = await fetch_block_data(height)
-        inner_blocks.append(block)
+    inner_blocks = await asyncio.gather(*[
+        fetch_block_data(height) for height in range(safe_block_height + 1, safe_block_height + 1 + num_inner_blocks)])
 
-    if not inner_blocks:
+    print(f"Fetching block data from height {inner_blocks[-1].height + 1} to {inner_blocks[-1].height + 7}...")
+    confirmation_blocks = await asyncio.gather(*[
+        fetch_block_data(height) for height in range(inner_blocks[-1].height + 2, inner_blocks[-1].height + 8)])
+
+    if not inner_blocks or not confirmation_blocks:
         print("No inner blocks to process.")
         return
 
     retarget_block = await fetch_block_data(retarget_height)
     safe_block = await fetch_block_data(safe_block_height)
     proposed_block = await fetch_block_data(inner_blocks[-1].height + 1)
+    print("Block height delta:", proposed_block.height - safe_block.height)
 
     # [2] create prover toml and witness
     print("Creating prover toml and witness...")
     await create_prover_toml_witness(
+        proposed_merkle_root_hex=proposed_block.merkle_root,
+        confirmation_block_hash_hex=compute_block_hash(confirmation_blocks[-1]),
         proposed_block_hash_hex=compute_block_hash(proposed_block),
         safe_block_hash_hex=compute_block_hash(safe_block),
         retarget_block_hash_hex=compute_block_hash(retarget_block),
@@ -118,6 +123,8 @@ async def test_multiple_blocks(safe_block_height: int, retarget_height: int, num
         retarget_block=retarget_block,
         inner_block_hashes_hex=[compute_block_hash(block) for block in inner_blocks],
         inner_blocks=inner_blocks,
+        confirmation_block_hashes_hex=[compute_block_hash(block) for block in confirmation_blocks],
+        confirmation_blocks=confirmation_blocks,
         compilation_build_folder=BLOCK_VERIFICATION_DIR
     )
 
@@ -139,7 +146,7 @@ def main():
     # test multiple blocks
     safe_block_height = 848524
     retarget_height = 846720
-    num_inner_blocks = 29
+    num_inner_blocks = 22
     asyncio.run(test_multiple_blocks(safe_block_height, retarget_height, num_inner_blocks))
 
 

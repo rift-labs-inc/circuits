@@ -100,6 +100,7 @@ async def block_toml_encoder(block: Block) -> list[str]:
     ]
 
 async def create_prover_toml_witness(
+    proposed_merkle_root_hex: str,
     confirmation_block_hash_hex: str,
     proposed_block_hash_hex: str,
     safe_block_hash_hex: str,
@@ -117,10 +118,8 @@ async def create_prover_toml_witness(
 ):
     print("Generating prover toml...")
     MAX_INNER_BLOCKS = 24
-    if len(inner_block_hashes_hex) > MAX_INNER_BLOCKS:
-        raise ValueError(f"Too many inner blocks. Max is {MAX_INNER_BLOCKS}")
-    
-    padded_inner_blocks = pad_list(inner_blocks, MAX_INNER_BLOCKS, Block(
+    CONFIRMATION_BLOCK_DELTA = 6
+    NULL_BLOCK = Block(
         height=0,
         version=0,
         prev_block_hash='0' * 64,
@@ -128,8 +127,16 @@ async def create_prover_toml_witness(
         timestamp=0,
         bits=0,
         nonce=0
-    ))
+    )
 
+    if len(inner_block_hashes_hex) > MAX_INNER_BLOCKS:
+        raise ValueError(f"Too many inner blocks. Max is {MAX_INNER_BLOCKS}")
+    
+    padded_inner_blocks = pad_list(inner_blocks, MAX_INNER_BLOCKS, NULL_BLOCK)
+
+    padded_confirmation_blocks = pad_list(confirmation_blocks, CONFIRMATION_BLOCK_DELTA, NULL_BLOCK)
+
+    proposed_merkle_root_encoded = split_hex_into_31_byte_chunks(proposed_merkle_root_hex)
     confirmation_block_hash_encoded = split_hex_into_31_byte_chunks(confirmation_block_hash_hex)
     proposed_block_hash_encoded = split_hex_into_31_byte_chunks(proposed_block_hash_hex)
     safe_block_hash_encoded = split_hex_into_31_byte_chunks(safe_block_hash_hex)
@@ -150,6 +157,13 @@ async def create_prover_toml_witness(
             f"retarget_block_hash_encoded={json.dumps(retarget_block_hash_encoded)}",
             f"safe_block_height={safe_block_height}",
             f"block_height_delta={block_height_delta}",
+            f"proposed_merkle_root_encoded={json.dumps(proposed_merkle_root_encoded)}",
+
+            f"inner_block_hashes_encoded={json.dumps(padded_inner_block_hashes_encoded)}",
+            "",
+
+            f"confirmation_block_hashes_encoded={json.dumps(padded_confirmation_block_hashes_encoded)}",
+            "",
 
             
             "[proposed_block]",
@@ -164,15 +178,13 @@ async def create_prover_toml_witness(
             *await block_toml_encoder(retarget_block),
             "",
 
-            f"inner_block_hashes_encoded={json.dumps(padded_inner_block_hashes_encoded)}",
+
+            *[
+                "\n".join(
+                    ["[[confirmation_blocks]]"] + await block_toml_encoder(block)
+                ) for block in padded_confirmation_blocks
+            ],
             "",
-
-            f"confirmation_block_hashes_encoded={json.dumps(padded_confirmation_block_hashes_encoded)}",
-            "",
-
-            f"confirmation_blocks
-            # TODO: Add padded confirmation blocks
-
             
             *[
                 "\n".join(
