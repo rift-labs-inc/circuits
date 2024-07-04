@@ -20,40 +20,13 @@ from utils.noir_lib import (
     verify_proof
 )
 
-async def test_multiple_blocks(proposed_block_height: int, safe_block_height: int, retarget_height: int):
-    num_inner_blocks = proposed_block_height - safe_block_height
+async def test_single_lp():
     # [0] compile project folder
-    BLOCK_VERIFICATION_DIR = "circuits/block_verification"
+    COMPILATION_DIR = "circuits/lp_hash_verification"
     BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
-    print("Compiling block verification circuit...")
-    await compile_project(BLOCK_VERIFICATION_DIR)
-
-    # [1] fetch block data
-    print(f"Fetching block data from height {safe_block_height + 1} to {safe_block_height + num_inner_blocks}...")
-    inner_blocks = await asyncio.gather(*[
-        fetch_block_data(height) for height in range(safe_block_height + 1, safe_block_height + num_inner_blocks)])
-
-    print(f"Fetching block data from height {proposed_block_height+1} to {proposed_block_height + 7}...")
-    confirmation_blocks = await asyncio.gather(*[
-        fetch_block_data(height) for height in range(proposed_block_height+1, proposed_block_height+7)])
-    print("RETARGET BLOCK", retarget_height)
-    print("SAFE BLOCK", safe_block_height)
-    print("INNER BLOCKS")
-    [print(block.height) for block in inner_blocks]
-    print("PROPOSED BLOCK", proposed_block_height)
-    print("CONFIRMATION BLOCKS")
-    [print(block.height) for block in confirmation_blocks]
-
-    if not inner_blocks or not confirmation_blocks:
-        print("No inner blocks to process.")
-        return
-
-    retarget_block = await fetch_block_data(retarget_height)
-    safe_block = await fetch_block_data(safe_block_height)
-    proposed_block = await fetch_block_data(proposed_block_height)
-    print("Block height delta:", proposed_block.height - safe_block.height)
-
-    # [2] create prover toml and witness
+    print("Compiling lp hash verification circuit...")
+    await compile_project(COMPILATION_DIR)
+    # [1] create prover toml and witness
     print("Creating prover toml and witness...")
     await create_block_verification_prover_toml_witness(
         proposed_merkle_root_hex=proposed_block.merkle_root,

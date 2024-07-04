@@ -17,39 +17,10 @@ from utils.noir_lib import (
     verify_proof
 )
 
-"""
-struct Block {
-    height: u64,
-    version: Field,
-    prev_block_hash: [u8; 32],
-    merkle_root: [u8; 32],
-    timestamp: Field,
-    bits: Field,
-    nonce: Field,
-}
 
-[proposed_block]
-bits = ""
-height = ""
-merkle_root = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
-nonce = ""
-prev_block_hash = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
-timestamp = ""
-version = ""
-
-
-
-proposed_block_hash_encoded: pub [Field; 2],
-safe_block_hash_encoded: pub [Field; 2],
-retarget_block_hash_encoded: pub [Field; 2],
-safe_block_height: pub u64,
-block_height_delta: pub u64,
-proposed_block: Block,
-safe_block: Block,
-retarget_block: Block,
-inner_block_hashes_encoded: [[Field; 2]; INNER_BLOCK_COUNT],
-inner_blocks: [Block; INNER_BLOCK_COUNT]
-"""
+class LiquidityProvider(BaseModel):
+    amount: int
+    locking_script_hex: str
 
 class Block(BaseModel):
     height: int
@@ -99,7 +70,9 @@ async def block_toml_encoder(block: Block) -> list[str]:
         f"version={block.version}",
     ]
 
-async def create_prover_toml_witness(
+
+
+async def create_block_verification_prover_toml_witness(
     proposed_merkle_root_hex: str,
     confirmation_block_hash_hex: str,
     proposed_block_hash_hex: str,
@@ -196,3 +169,14 @@ async def create_prover_toml_witness(
 
     print("Creating witness...")
     await create_witness(prover_toml_string, compilation_build_folder)
+
+
+async def create_lp_hash_verification_prover_toml(lp_reservation_hash_hex: str, lp_reservation_data):
+    """
+    #[recursive]
+    fn main(
+        lp_reservation_hash_encoded: pub [Field; 2],
+        lp_reservation_data_encoded: pub [[Field; 4]; rift_lib::constants::MAX_LIQUIDITY_PROVIDERS],
+        lp_count: pub u32
+    ) {
+    """

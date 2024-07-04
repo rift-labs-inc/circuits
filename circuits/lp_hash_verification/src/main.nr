@@ -75,7 +75,7 @@ fn test_main() {
 	lp_data[0][2] = 0x0037664749bc041993bf56b9e8b233b9ddcc8abc7742f5a82f015a0d2256e0;
 	lp_data[0][3] = 0x869a91;
 
-	let lp_count: u64 = 1;
+	let lp_count: u32 = 1;
 
 	let expected_vault_hash: [Field; 2] = [
 		0xc17faeca6b477799acff09750a4ef4db523577227834164cb93b5afba22767,
