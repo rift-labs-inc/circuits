@@ -83,7 +83,8 @@ async def test_single_block_verification_hardcoded():
     print("Verified proof!")
 
 
-async def test_multiple_blocks(safe_block_height: int, retarget_height: int, num_inner_blocks: int):
+async def test_multiple_blocks(proposed_block_height: int, safe_block_height: int, retarget_height: int):
+    num_inner_blocks = proposed_block_height - safe_block_height
     # [0] compile project folder
     BLOCK_VERIFICATION_DIR = "circuits/block_verification"
     BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
@@ -91,13 +92,20 @@ async def test_multiple_blocks(safe_block_height: int, retarget_height: int, num
     await compile_project(BLOCK_VERIFICATION_DIR)
 
     # [1] fetch block data
-    print(f"Fetching block data from height {safe_block_height + 1} to {safe_block_height + 1 + num_inner_blocks}...")
+    print(f"Fetching block data from height {safe_block_height + 1} to {safe_block_height + num_inner_blocks}...")
     inner_blocks = await asyncio.gather(*[
-        fetch_block_data(height) for height in range(safe_block_height + 1, safe_block_height + 1 + num_inner_blocks)])
+        fetch_block_data(height) for height in range(safe_block_height + 1, safe_block_height + num_inner_blocks)])
 
-    print(f"Fetching block data from height {inner_blocks[-1].height + 1} to {inner_blocks[-1].height + 7}...")
+    print(f"Fetching block data from height {proposed_block_height+1} to {proposed_block_height + 7}...")
     confirmation_blocks = await asyncio.gather(*[
-        fetch_block_data(height) for height in range(inner_blocks[-1].height + 2, inner_blocks[-1].height + 8)])
+        fetch_block_data(height) for height in range(proposed_block_height+1, proposed_block_height+7)])
+    print("RETARGET BLOCK", retarget_height)
+    print("SAFE BLOCK", safe_block_height)
+    print("INNER BLOCKS")
+    [print(block.height) for block in inner_blocks]
+    print("PROPOSED BLOCK", proposed_block_height)
+    print("CONFIRMATION BLOCKS")
+    [print(block.height) for block in confirmation_blocks]
 
     if not inner_blocks or not confirmation_blocks:
         print("No inner blocks to process.")
@@ -105,7 +113,7 @@ async def test_multiple_blocks(safe_block_height: int, retarget_height: int, num
 
     retarget_block = await fetch_block_data(retarget_height)
     safe_block = await fetch_block_data(safe_block_height)
-    proposed_block = await fetch_block_data(inner_blocks[-1].height + 1)
+    proposed_block = await fetch_block_data(proposed_block_height)
     print("Block height delta:", proposed_block.height - safe_block.height)
 
     # [2] create prover toml and witness
@@ -145,9 +153,9 @@ def main():
     
     # test multiple blocks
     safe_block_height = 848524
+    proposed_block_height = 848534
     retarget_height = 846720
-    num_inner_blocks = 22
-    asyncio.run(test_multiple_blocks(safe_block_height, retarget_height, num_inner_blocks))
+    asyncio.run(test_multiple_blocks(proposed_block_height, safe_block_height, retarget_height))
 
 
 if __name__ == "__main__":

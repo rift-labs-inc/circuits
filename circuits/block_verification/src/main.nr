@@ -75,6 +75,7 @@ fn main(
     );
 
     last_block_hash = proposed_block_hash;
+	last_block_height += 1;
     for i in 0..CONFIRMATION_BLOCK_DELTA {
         let confirmation_block_hash = byte_lib::decode_field_encoded_hash(confirmation_block_hashes_encoded[i]);
         verify_block(

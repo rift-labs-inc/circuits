@@ -105,6 +105,8 @@ fn main(
 
     // Block Verification
     let mut block_pub_input: [Field] = &[
+		confirmation_block_hash_encoded[0],
+		confirmation_block_hash_encoded[1],
 		proposed_block_hash_encoded[0],
 		proposed_block_hash_encoded[1],
 		safe_block_hash_encoded[0],
