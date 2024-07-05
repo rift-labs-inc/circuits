@@ -5,7 +5,13 @@ import asyncio
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.fetch_block_data import fetch_block_data
-from utils.rift_lib import create_block_verification_prover_toml_witness, Block, compute_block_hash
+from utils.rift_lib import (
+    create_block_verification_prover_toml_witness,
+    Block,
+    compute_block_hash,
+    LiquidityProvider,
+    create_lp_hash_verification_prover_toml
+)
 from utils.noir_lib import (
     initialize_noir_project_folder,
     compile_project,
@@ -28,44 +34,15 @@ async def test_single_lp():
     await compile_project(COMPILATION_DIR)
     # [1] create prover toml and witness
     print("Creating prover toml and witness...")
-    await create_block_verification_prover_toml_witness(
-        proposed_merkle_root_hex=proposed_block.merkle_root,
-        confirmation_block_hash_hex=compute_block_hash(confirmation_blocks[-1]),
-        proposed_block_hash_hex=compute_block_hash(proposed_block),
-        safe_block_hash_hex=compute_block_hash(safe_block),
-        retarget_block_hash_hex=compute_block_hash(retarget_block),
-        safe_block_height=safe_block.height,
-        block_height_delta=proposed_block.height - safe_block.height,
-        proposed_block=proposed_block,
-        safe_block=safe_block,
-        retarget_block=retarget_block,
-        inner_block_hashes_hex=[compute_block_hash(block) for block in inner_blocks],
-        inner_blocks=inner_blocks,
-        confirmation_block_hashes_hex=[compute_block_hash(block) for block in confirmation_blocks],
-        confirmation_blocks=confirmation_blocks,
-        compilation_build_folder=BLOCK_VERIFICATION_DIR
+    lp = LiquidityProvider(amount=100, btc_exchange_rate=1000, locking_script_hex="0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7")
+    await create_lp_hash_verification_prover_toml(
+        lp_reservation_data=[lp],
+        compilation_build_folder=COMPILATION_DIR
     )
-
-    # [3] build verification key, create proof, and verify proof
-    vk = "./target/vk"
-    print("Building verification key...")
-    await build_raw_verification_key(vk, BLOCK_VERIFICATION_DIR, BB)
-    print("Creating proof...")
-    await create_proof(pub_inputs=12, vk_path=vk, compilation_dir=BLOCK_VERIFICATION_DIR, bb_binary=BB)
-    print("Verifying proof...")
-    await verify_proof(vk_path=vk, compilation_dir=BLOCK_VERIFICATION_DIR, bb_binary=BB)
-    print(f"Proof with {num_inner_blocks + 1} total blocks verified!")
 
 
 def main():
-    # test single block
-    # asyncio.run(test_single_block_verification_hardcoded()) 
-    
-    # test multiple blocks
-    safe_block_height = 848524
-    proposed_block_height = 848534
-    retarget_height = 846720
-    asyncio.run(test_multiple_blocks(proposed_block_height, safe_block_height, retarget_height))
+    asyncio.run(test_single_lp())
 
 
 if __name__ == "__main__":

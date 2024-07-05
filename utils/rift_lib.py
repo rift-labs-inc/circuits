@@ -2,6 +2,7 @@
 import hashlib
 from pydantic import BaseModel
 import json
+from eth_abi.abi import encode as eth_abi_encode
 
 from utils.noir_lib import (
     initialize_noir_project_folder,
@@ -20,6 +21,7 @@ from utils.noir_lib import (
 
 class LiquidityProvider(BaseModel):
     amount: int
+    btc_exchange_rate: int
     locking_script_hex: str
 
 class Block(BaseModel):
@@ -171,7 +173,11 @@ async def create_block_verification_prover_toml_witness(
     await create_witness(prover_toml_string, compilation_build_folder)
 
 
-async def create_lp_hash_verification_prover_toml(lp_reservation_hash_hex: str, lp_reservation_data):
+async def create_lp_hash_verification_prover_toml(
+    lp_reservation_data: list[LiquidityProvider],
+    compilation_build_folder: str
+):
+    MAX_LIQUIDITY_PROVIDERS = 175
     """
     #[recursive]
     fn main(
@@ -180,3 +186,57 @@ async def create_lp_hash_verification_prover_toml(lp_reservation_hash_hex: str, 
         lp_count: pub u32
     ) {
     """
+    # 4 Fields = 4 * 31 bytes = 124 bytes
+    # 3 bytes32 = 3 * 32 bytes = 96 bytes
+    # 124 - 96 = 28 bytes
+    padded_lp_reservation_data_encoded = pad_list(
+        list(map(lambda lp: split_hex_into_31_byte_chunks(
+            eth_abi_encode(
+                ["uint192", "uint64", "bytes32"],
+                [lp.amount, lp.btc_exchange_rate, bytes.fromhex(normalize_hex_str(lp.locking_script_hex))]
+            ).hex()
+        ), lp_reservation_data)),
+        MAX_LIQUIDITY_PROVIDERS,
+        ["0x0"] * 4
+    )
+
+    """
+
+        bytes32 vaultHash;
+
+        // [5] check if there is enough liquidity in each deposit vaults to reserve
+        for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
+            // [0] retrieve deposit vault
+            vaultHash = sha256(
+                abi.encode(
+                    amountsToReserve[i],
+                    depositVaults[vaultIndexesToReserve[i]].btcExchangeRate,
+                    depositVaults[vaultIndexesToReserve[i]].btcPayoutLockingScript,
+                    vaultHash
+                )
+            );
+
+            // [1] ensure there is enough liquidity in this vault to reserve
+            if (amountsToReserve[i] > depositVaults[vaultIndexesToReserve[i]].unreservedBalance) {
+                revert NotEnoughLiquidity();
+            }
+        }
+    """
+
+    vault_hash_hex = "00"*32
+    for i in range(len(lp_reservation_data)):
+        vault_hash_hex = hashlib.sha256(
+            eth_abi_encode(
+                ["uint192", "uint64", "bytes32", "bytes32"],
+                [lp_reservation_data[i].amount, lp_reservation_data[i].btc_exchange_rate, bytes.fromhex(normalize_hex_str(lp_reservation_data[i].locking_script_hex)), bytes.fromhex(vault_hash_hex)]
+            )
+        ).hexdigest
+
+    prover_toml_string = "\n".join(
+        [
+            f"lp_reservation_hash_encoded={json.dumps(padded_lp_reservation_data_encoded)}",
+            f"lp_count={len(lp_reservation_data)}",
+            f"lp_reservation_data_encoded={json.dumps(padded_lp_reservation_data_encoded)}",
+        ]
+    )
+
