@@ -1,4 +1,5 @@
 **.DS_Store
 **/target
 **/__pycache__
-
+**Prover.toml
+**Verifier.toml
