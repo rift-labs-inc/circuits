@@ -200,43 +200,29 @@ async def create_lp_hash_verification_prover_toml(
         ["0x0"] * 4
     )
 
-    """
-
-        bytes32 vaultHash;
-
-        // [5] check if there is enough liquidity in each deposit vaults to reserve
-        for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
-            // [0] retrieve deposit vault
-            vaultHash = sha256(
-                abi.encode(
-                    amountsToReserve[i],
-                    depositVaults[vaultIndexesToReserve[i]].btcExchangeRate,
-                    depositVaults[vaultIndexesToReserve[i]].btcPayoutLockingScript,
-                    vaultHash
-                )
-            );
-
-            // [1] ensure there is enough liquidity in this vault to reserve
-            if (amountsToReserve[i] > depositVaults[vaultIndexesToReserve[i]].unreservedBalance) {
-                revert NotEnoughLiquidity();
-            }
-        }
-    """
-
     vault_hash_hex = "00"*32
     for i in range(len(lp_reservation_data)):
         vault_hash_hex = hashlib.sha256(
             eth_abi_encode(
                 ["uint192", "uint64", "bytes32", "bytes32"],
-                [lp_reservation_data[i].amount, lp_reservation_data[i].btc_exchange_rate, bytes.fromhex(normalize_hex_str(lp_reservation_data[i].locking_script_hex)), bytes.fromhex(vault_hash_hex)]
+                [
+                    lp_reservation_data[i].amount,
+                    lp_reservation_data[i].btc_exchange_rate,
+                    bytes.fromhex(normalize_hex_str(lp_reservation_data[i].locking_script_hex)),
+                    bytes.fromhex(vault_hash_hex)
+                ]
             )
-        ).hexdigest
+        ).hexdigest()
+
+    vault_hash_encoded = split_hex_into_31_byte_chunks(vault_hash_hex)
 
     prover_toml_string = "\n".join(
         [
-            f"lp_reservation_hash_encoded={json.dumps(padded_lp_reservation_data_encoded)}",
-            f"lp_count={len(lp_reservation_data)}",
+            f"lp_reservation_hash_encoded={json.dumps(vault_hash_encoded)}",
             f"lp_reservation_data_encoded={json.dumps(padded_lp_reservation_data_encoded)}",
+            f"lp_count={len(lp_reservation_data)}",
         ]
     )
-
+    
+    print("Creating witness...")
+    await create_witness(prover_toml_string, compilation_build_folder)

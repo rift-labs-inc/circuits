@@ -39,6 +39,15 @@ async def test_single_lp():
         lp_reservation_data=[lp],
         compilation_build_folder=COMPILATION_DIR
     )
+    # [3] build verification key, create proof, and verify proof
+    vk = "./target/vk"
+    print("Building verification key...")
+    await build_raw_verification_key(vk, COMPILATION_DIR, BB)
+    print("Creating proof...")
+    await create_proof(pub_inputs=703, vk_path=vk, compilation_dir=COMPILATION_DIR, bb_binary=BB)
+    print("Verifying proof...")
+    await verify_proof(vk_path=vk, compilation_dir=COMPILATION_DIR, bb_binary=BB)
+    print("lp hash verification successful!")
 
 
 def main():
