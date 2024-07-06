@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import json
 from eth_abi.abi import encode as eth_abi_encode
 
+
 from utils.noir_lib import (
     initialize_noir_project_folder,
     compile_project,
@@ -18,6 +19,7 @@ from utils.noir_lib import (
     verify_proof
 )
 
+BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
 
 class LiquidityProvider(BaseModel):
     amount: int

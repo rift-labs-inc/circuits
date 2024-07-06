@@ -5,6 +5,8 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from utils.rift_lib import BB
+
 from utils.noir_lib import (
     initialize_noir_project_folder,
     compile_project,
@@ -20,7 +22,7 @@ from utils.noir_lib import (
 )
 
 
-async def get_block_vk_hash(BB: str):
+async def get_block_vk_hash():
     compilation_dir = "circuits/block_verification"
     vk = tempfile.NamedTemporaryFile()
     print("Compiling block verification circuit...")
@@ -31,7 +33,7 @@ async def get_block_vk_hash(BB: str):
     print("[BLOCK] Verification Key Hash:", vk_data[0])
 
 
-async def get_lp_hash_verification_vk_hash(BB: str):
+async def get_lp_hash_verification_vk_hash():
     compilation_dir = "circuits/lp_hash_verification"
     vk = tempfile.NamedTemporaryFile()
     print("Compiling liquidity provider hash circuit...")
@@ -42,9 +44,8 @@ async def get_lp_hash_verification_vk_hash(BB: str):
     print("[LP HASH] Verification Key Hash:", vk_data[0])
 
 async def main():
-    BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
-    #await get_block_vk_hash(BB)
-    await get_lp_hash_verification_vk_hash(BB)
+    #await get_block_vk_hash()
+    await get_lp_hash_verification_vk_hash()
 
 
 if __name__ == "__main__":

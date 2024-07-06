@@ -8,6 +8,7 @@ from utils.fetch_block_data import fetch_block_data
 from utils.rift_lib import (
     Block,
     compute_block_hash,
+    BB
 )
 from utils.noir_lib import (
     initialize_noir_project_folder,
@@ -26,7 +27,6 @@ from utils.noir_lib import (
 async def test_single_lp():
     # [0] compile project folder
     COMPILATION_DIR = "circuits/recursive_sha"
-    BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
     PUB_INPUTS = 228
     print("Compiling recursive sha hash verification circuit...")
     await compile_project(COMPILATION_DIR)

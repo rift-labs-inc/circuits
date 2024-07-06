@@ -1,6 +1,16 @@
 # circuits
 
 
+
+
+## Dependencies
+Python 3.11<br>
+```
+sudo apt install libgmp3-dev build-essential
+python -m pip install -r requirements.txt
+```
+
+
 ## Create Subcircuit Verification Keys
 
 ### Recursive SHA256

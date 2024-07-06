@@ -10,7 +10,8 @@ from utils.rift_lib import (
     Block,
     compute_block_hash,
     LiquidityProvider,
-    create_lp_hash_verification_prover_toml
+    create_lp_hash_verification_prover_toml,
+    BB
 )
 from utils.noir_lib import (
     initialize_noir_project_folder,
@@ -30,7 +31,6 @@ async def test_single_lp():
     print("Testing Single LP...")
     # [0] compile project folder
     COMPILATION_DIR = "circuits/lp_hash_verification"
-    BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
     print("Compiling lp hash verification circuit...")
     await compile_project(COMPILATION_DIR)
     # [1] create prover toml and witness
@@ -55,7 +55,6 @@ async def test_multiple_lps():
     print("Testing multiple liquidity providers...")
     # [0] compile project folder
     COMPILATION_DIR = "circuits/lp_hash_verification"
-    BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
     print("Compiling lp hash verification circuit...")
     await compile_project(COMPILATION_DIR)
     # [1] create prover toml and witness

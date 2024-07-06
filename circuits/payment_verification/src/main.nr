@@ -155,6 +155,7 @@ pub fn decode_liqudity_providers(
 
 
 
+// txn data must be segwit, but CANNOT include segwit data
 pub fn assert_payment_utxos_exist(
 	txn_data: [u8; constants::MAX_TXN_BYTES],
 	reserved_liquidity_providers: [RiftLiquidityReservation; constants::MAX_LIQUIDITY_PROVIDERS],
@@ -162,11 +163,11 @@ pub fn assert_payment_utxos_exist(
 	expected_payout: u64
 ) {
     //let version: u32 = to_int(byte_lib::grab_bytes_le(COMP_TIME_4, txn_data, 0)) as u32;
-    let mut is_segwit = false;
-    if (txn_data[4] == 0x00) & (txn_data[5] >= 0x01) {
-        is_segwit = true;
-    }
-	assert(is_segwit);
+    //let mut is_segwit = false;
+    //if (txn_data[4] == 0x00) & (txn_data[5] >= 0x01) {
+    //    is_segwit = true;
+    //}
+	//assert(is_segwit);
     let mut data_pointer = 6; //segwit marker and flag
 	let (input_counter, input_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
     data_pointer += input_counter_byte_len as u64;

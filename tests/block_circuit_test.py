@@ -5,7 +5,7 @@ import asyncio
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.fetch_block_data import fetch_block_data
-from utils.rift_lib import create_block_verification_prover_toml_witness, Block, compute_block_hash
+from utils.rift_lib import create_block_verification_prover_toml_witness, Block, compute_block_hash, BB
 from utils.noir_lib import (
     initialize_noir_project_folder,
     compile_project,
@@ -24,7 +24,6 @@ async def test_multiple_blocks(proposed_block_height: int, safe_block_height: in
     num_inner_blocks = proposed_block_height - safe_block_height
     # [0] compile project folder
     BLOCK_VERIFICATION_DIR = "circuits/block_verification"
-    BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
     print("Compiling block verification circuit...")
     await compile_project(BLOCK_VERIFICATION_DIR)
 
