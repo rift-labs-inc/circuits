@@ -1,8 +1,9 @@
 use dep::std;
-use dep::rift_lib::constants::{MAX_ENCODED_CHUNKS};
+//use dep::rift_lib::constants::{MAX_ENCODED_CHUNKS}; //no external deps in this circuit
+global MAX_ENCODED_CHUNKS = 226;
 
 // [VARIABLE] Amount of bytes this circuit will consume from encoded_data
-global BYTELEN: u32 = 7000; 
+global BYTELEN: u32 = 7000; // [REPLACE]
 // the amount of Field chunks needed to store BYTELEN amount of u8s should always be => ceil(BYTELEN/31)
 global BYTELEN_CHUNK: u32 = (BYTELEN + 30) / 31;
 // overflow, if bytelen mod 31 is equal to 0 then we set overflow equal to 31

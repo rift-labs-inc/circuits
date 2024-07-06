@@ -4,56 +4,21 @@ import hashlib
 import time
 import multiprocessing
 import sys
+import os
 import psutil
 from typing import Any
-import aiofiles
 import json
-import os
 import tempfile
 import subprocess
 
+import aiofiles
 
-SHA_CIRCUIT_FS = {
-    "src/main.nr": """
-use dep::std;
-// use dep::rift_lib::constants::{MAX_ENCODED_CHUNKS};
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-// [VARIABLE] Amount of bytes this circuit will consume from encoded_data
-global BYTELEN: u32 = __PLACEHOLDER__; 
-// the amount of Field chunks needed to store BYTELEN amount of u8s should always be => ceil(BYTELEN/31)
-global BYTELEN_CHUNK: u32 = (BYTELEN + 30) / 31;
-// overflow, if bytelen mod 31 is equal to 0 then we set overflow equal to 31
-global OVERFLOW: u32 = (BYTELEN % 31) + ((BYTELEN % 31 == 0) as u32 * 31);
-global MAX_ENCODED_CHUNKS: u32 = 226;
-
-#[recursive]
-fn main(expected_hash_encoded: pub [Field; 2], encoded_data: pub [Field; MAX_ENCODED_CHUNKS]) {
-	assert(MAX_ENCODED_CHUNKS >= (BYTELEN/BYTELEN_CHUNK));
-	let mut data: [u8; BYTELEN] = [0; BYTELEN];
-	for i in 0..BYTELEN_CHUNK-1 {
-		let decoded_field = encoded_data[i].to_be_bytes(31);
-		for j in 0..31 {
-			data[(i*31)+j] = decoded_field[j];
-		}
-	}
-	let decoded_field = encoded_data[BYTELEN_CHUNK-1].to_be_bytes(OVERFLOW);
-	for i in 0..OVERFLOW {
-		data[((BYTELEN_CHUNK-1)*31)+i] = decoded_field[i];
-	}
-	let expected_hash_l1: [u8] = expected_hash_encoded[0].to_be_bytes(31);
-	let expected_hash_l2: [u8] = expected_hash_encoded[1].to_be_bytes(1);
-	let mut expected_hash: [u8; 32] = [0; 32];
-	for i in 0..31{
-		expected_hash[i] = expected_hash_l1[i];	
-	}
-	expected_hash[31] = expected_hash_l2[0];
-	assert(std::hash::sha256(data) == expected_hash);
-}
-"""
-}
+from utils.rift_lib import BB
 
 
-def initiate_nargo_dir() -> tempfile.TemporaryDirectory:
+def initiate_nargo_dir(sha_circuit_fs: dict[str, str]) -> tempfile.TemporaryDirectory:
     temp_dir = tempfile.TemporaryDirectory()
     command = "nargo init --bin --name dynamic_sha_lib"
     process = subprocess.run(
@@ -67,7 +32,7 @@ def initiate_nargo_dir() -> tempfile.TemporaryDirectory:
     )
     if process.stderr:
         raise Exception(process.stderr)
-    for file_path, file_content in SHA_CIRCUIT_FS.items():
+    for file_path, file_content in sha_circuit_fs.items():
         file_full_path = os.path.join(temp_dir.name, file_path)
         os.makedirs(os.path.dirname(file_full_path), exist_ok=True)
         with open(file_full_path, "w+") as file:
@@ -122,17 +87,26 @@ async def create_new_circuit(
     bb_binary: str,
     compilation_dir: str,
     byte_len: int,
+    sha_circuit_fs: dict[str, str],
     profile_write_vk: bool = False,
     log_mem_func=None,
     write_vk: bool = True,
 ) -> tuple[str, str] | None:
     file_name = f"{compilation_dir}/src/main.nr"
 
+    # find the line where [REPLACE] is then replace the entire line with 
+    # the new byte_len
+    lines = sha_circuit_fs['src/main.nr'].split("\n")
+    for i, line in enumerate(lines):
+        if "[REPLACE]" in line:
+            #global BYTELEN: u32 = 7000; // [REPLACE]
+            lines[i] = f"global BYTELEN: u32 = {byte_len};"
+            break
+    subcircuit_source = "\n".join(lines)
+
     # Asynchronously write to the file
     async with aiofiles.open(file_name, "w") as file:
-        await file.write(
-            SHA_CIRCUIT_FS['src/main.nr'].replace("__PLACEHOLDER__", str(byte_len))
-        )
+        await file.write(subcircuit_source)
 
     # Prepare the command and execute it asynchronously
     command = "nargo compile --only-acir"
@@ -170,80 +144,42 @@ def hex_string_to_byte_array(hex_string: str) -> list[int]:
     return byte_array
 
 
-async def create_demo_proof(bb_binary: str, compilation_dir: str, byte_len: int):
-    # Repeating the hex string "dd"  times
-    data = "dd" * byte_len
-
-    # Creating a SHA-256 hash of the byte data
-    data_hash = hashlib.sha256(bytes.fromhex(data)).hexdigest()
-
-    output = f"data={json.dumps(hex_string_to_byte_array(data))}\nexpected_hash={json.dumps(hex_string_to_byte_array(data_hash))}"
-
-    async with aiofiles.open(
-        os.path.join(compilation_dir, "Prover.toml"), "w+"
-    ) as file:
-        await file.write(output)
-
-    command = "nargo execute witness"
-
-    process = await asyncio.create_subprocess_shell(
-        command,
-        shell=True,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=compilation_dir,
-    )
-
-    stdout, stderr = await process.communicate()
-
-    if process.returncode != 0:
-        print("Errors:\n", stderr.decode())
-        raise Exception()
-
-    command = f"{bb_binary} prove -o ./target/proof"
-
-    process = await asyncio.create_subprocess_shell(
-        command,
-        shell=True,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=compilation_dir,
-    )
-
-    stdout, stderr = await process.communicate()
-    print("Proof built")
-
-    if process.returncode != 0:
-        print("Errors:\n", stderr.decode())
-        raise Exception()
+async def load_recursive_sha_circuit():
+    # Load the circuit file
+    async with aiofiles.open("circuits/recursive_sha/src/main.nr", "r") as file:
+        return {
+            "src/main.nr": await file.read()
+        }
 
 
 async def mine_batch(start_chunk: int):
-    # TODO_ALPINE: Remove constants json, hard code constants
     assert start_chunk >= 0
-    constants = json.load(open("scripts/constants.json", "r"))
-    CIRCUIT_GEN_CONCURRENCY_LIM = constants["CIRCUIT_GEN_CONCURRENCY_LIM"]
-    BB_BINARY = constants["BB_BINARY"]
-    get_vkey_chunk_file = (
-        lambda x: f"{constants['VERIFICATION_KEY_HASH_PREFIX']}{x:04d}.json"
-    )
+    BB_BINARY = BB
+    CIRCUIT_GEN_CONCURRENCY_LIM = 5 
+    VERIFICATION_KEY_HASH_PREFIX = "generated_sha_circuits/vk_hash_"
+    SHA_CIRCUIT_FS = await load_recursive_sha_circuit()
     # this shouldn't change:
     BATCH_CHUNK_SIZE = 1000
     CHUNK_SIZE = 1000
+
+    get_vkey_chunk_file = (
+        lambda x: f"{VERIFICATION_KEY_HASH_PREFIX}{x:04d}.json"
+    )
 
     total_bytes = ((start_chunk + 1) * BATCH_CHUNK_SIZE) - (
         start_chunk * BATCH_CHUNK_SIZE
     )
 
+
     semaphore = asyncio.Semaphore(CIRCUIT_GEN_CONCURRENCY_LIM)
     temp_dir_handles = [
-        initiate_nargo_dir() for _ in range(CIRCUIT_GEN_CONCURRENCY_LIM * 2)
+        initiate_nargo_dir(SHA_CIRCUIT_FS) for _ in range(CIRCUIT_GEN_CONCURRENCY_LIM * 2)
     ]
 
     async def guarded_circuit_creation(byte_len, dir_handle):
         async with semaphore:
             start_time = time.time()
-            result = await create_new_circuit(BB_BINARY, dir_handle, byte_len)
+            result = await create_new_circuit(BB_BINARY, dir_handle, byte_len, SHA_CIRCUIT_FS)
             elapsed_time = time.time() - start_time
             remaining = (
                 total_bytes - (byte_len - (start_chunk * BATCH_CHUNK_SIZE))
@@ -303,7 +239,6 @@ async def run_batched_gen():
         sys.exit(1)  # Exit the program with an error code
 
     await mine_batch(start)
-
 
 if __name__ == "__main__":
     asyncio.run(run_batched_gen())

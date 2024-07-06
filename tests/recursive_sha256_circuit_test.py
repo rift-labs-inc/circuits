@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.fetch_block_data import fetch_block_data
@@ -24,10 +25,10 @@ from utils.noir_lib import (
     verify_proof
 )
 
-async def test_single_lp():
+async def test_recursive_sha():
     # [0] compile project folder
     COMPILATION_DIR = "circuits/recursive_sha"
-    PUB_INPUTS = 228
+    PUB_INPUTS = 1
     print("Compiling recursive sha hash verification circuit...")
     await compile_project(COMPILATION_DIR)
     # [1] create prover toml and witness
@@ -40,11 +41,11 @@ async def test_single_lp():
     await create_proof(pub_inputs=703, vk_path=vk, compilation_dir=COMPILATION_DIR, bb_binary=BB)
     print("Verifying proof...")
     await verify_proof(vk_path=vk, compilation_dir=COMPILATION_DIR, bb_binary=BB)
-    print("lp hash verification successful!")
+    print("recursive sha verification successful!")
 
 
 def main():
-    asyncio.run(test_single_lp())
+    asyncio.run(test_recursive_sha())
 
 
 if __name__ == "__main__":

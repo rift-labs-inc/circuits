@@ -20,3 +20,4 @@ typing_extensions==4.12.2
 yarl==1.9.4
 web3==6.20.0
 python_bitcoinlib==0.12.2
+psutil==6.0.0
