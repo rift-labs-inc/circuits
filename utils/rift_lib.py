@@ -20,6 +20,8 @@ from utils.noir_lib import (
 )
 
 BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
+MAX_ENCODED_CHUNKS = 226
+MAX_LIQUIDITY_PROVIDERS = 175
 
 class LiquidityProvider(BaseModel):
     amount: int
@@ -179,7 +181,6 @@ async def create_lp_hash_verification_prover_toml(
     lp_reservation_data: list[LiquidityProvider],
     compilation_build_folder: str
 ):
-    MAX_LIQUIDITY_PROVIDERS = 175
     """
     #[recursive]
     fn main(
@@ -223,6 +224,61 @@ async def create_lp_hash_verification_prover_toml(
             f"lp_reservation_hash_encoded={json.dumps(vault_hash_encoded)}",
             f"lp_reservation_data_encoded={json.dumps(padded_lp_reservation_data_encoded)}",
             f"lp_count={len(lp_reservation_data)}",
+        ]
+    )
+    
+    print("Creating witness...")
+    await create_witness(prover_toml_string, compilation_build_folder)
+
+
+
+
+async def create_payment_verification_prover_toml(
+    txn_data_no_segwit_hex: str,
+    lp_reservation_data: list[LiquidityProvider],
+    lp_count: int,
+    order_nonce_hex: str,
+    expected_payout: int,
+    compilation_build_folder: str
+):
+    """
+    fn main(
+        txn_data_encoded: pub [Field; constants::MAX_ENCODED_CHUNKS],
+        lp_reservation_data_encoded: pub [[Field; 4]; constants::MAX_LIQUIDITY_PROVIDERS],
+        order_nonce_encoded: pub [Field; 2],
+        expected_payout: pub u64,
+        txn_data: [u8; constants::MAX_TXN_BYTES]
+    ) {
+    """
+    # 4 Fields = 4 * 31 bytes = 124 bytes
+    # 3 bytes32 = 3 * 32 bytes = 96 bytes
+    # 124 - 96 = 28 bytes
+    padded_lp_reservation_data_encoded = pad_list(
+        list(map(lambda lp: split_hex_into_31_byte_chunks(
+            eth_abi_encode(
+                ["uint192", "uint64", "bytes32"],
+                [lp.amount, lp.btc_exchange_rate, bytes.fromhex(normalize_hex_str(lp.locking_script_hex))]
+            ).hex()
+        ), lp_reservation_data)),
+        MAX_LIQUIDITY_PROVIDERS,
+        ["0x0"] * 4
+    )
+
+
+    txn_data_encoded = pad_list(split_hex_into_31_byte_chunks(normalize_hex_str(txn_data_no_segwit_hex)), MAX_ENCODED_CHUNKS, "0x0")
+    # turns this into a list of 1 byte chunks
+    txn_data = pad_list(list(bytes.fromhex(normalize_hex_str(txn_data_no_segwit_hex))), 31*MAX_ENCODED_CHUNKS, 0)
+
+    order_nonce_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(order_nonce_hex))
+
+    prover_toml_string = "\n".join(
+        [
+            f"txn_data_encoded={json.dumps(txn_data_encoded)}",
+            f"lp_reservation_data_encoded={json.dumps(padded_lp_reservation_data_encoded)}",
+            f"order_nonce_encoded={json.dumps(order_nonce_encoded)}",
+            f"expected_payout={expected_payout}",
+            f"lp_count={lp_count}",
+            f"txn_data={json.dumps(txn_data)}",
         ]
     )
     

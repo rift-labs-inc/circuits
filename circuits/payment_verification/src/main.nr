@@ -159,6 +159,7 @@ pub fn decode_liqudity_providers(
 pub fn assert_payment_utxos_exist(
 	txn_data: [u8; constants::MAX_TXN_BYTES],
 	reserved_liquidity_providers: [RiftLiquidityReservation; constants::MAX_LIQUIDITY_PROVIDERS],
+	lp_count: u64,
 	order_nonce: [u8; 32],
 	expected_payout: u64
 ) {
@@ -168,10 +169,10 @@ pub fn assert_payment_utxos_exist(
     //    is_segwit = true;
     //}
 	//assert(is_segwit);
-    let mut data_pointer = 6; //segwit marker and flag
+    let mut data_pointer = 4; // version from 0:4
 	let (input_counter, input_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
     data_pointer += input_counter_byte_len as u64;
-	assert(input_counter <= MAX_INPUT_COUNT);
+	assert(input_counter == MAX_INPUT_COUNT);
 
 	// we would extract inputs here if we cared about them
 	for i in 0..MAX_INPUT_COUNT {
@@ -185,15 +186,13 @@ pub fn assert_payment_utxos_exist(
 
 	let (output_counter, output_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
 	assert(output_counter <= constants::MAX_LIQUIDITY_PROVIDERS as u64);
+	assert(lp_count + 1 <= output_counter);
     data_pointer += output_counter_byte_len as u64;
 
 	let mut calculated_payout: u64 = 0;
 
-	// the setup here is the first n-2 outputs are all liquidity providers who are being paid,
-	// the second to last output is the order nonce (inscription)
-	// the last output is the miner fee
 	for i in 0..constants::MAX_LIQUIDITY_PROVIDERS {
-		if i < (output_counter-2) as u32 {
+		if i < (lp_count) as u32 {
 			// for every output item, determine how much of the slice it's consuming
 			let value: u64 = to_int(byte_lib::grab_bytes_le(COMP_TIME_8, txn_data, data_pointer)) as u64;
 			data_pointer += AMOUNT_LEN as u64;
@@ -218,10 +217,10 @@ pub fn assert_payment_utxos_exist(
 			data_pointer += sig_counter;
 		}
 	}
-	assert(calculated_payout == expected_payout);
-	// Now we're at the end of the payment outputs, the second to last output should always be the order nonce inscription (give last output so that the user can pay miner fee
 
-	// the second to last output is the order nonce (inscription)
+	assert(calculated_payout == expected_payout);
+	// Now we're at the end of the payment outputs, the next output should be the inscription
+
 	data_pointer += AMOUNT_LEN as u64;
 	let (sig_counter, sig_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
 	data_pointer += sig_counter_byte_len as u64;
@@ -259,17 +258,19 @@ fn assert_txn_data_is_equal(txn_data_encoded: [Field; constants::MAX_ENCODED_CHU
 #[recursive]
 fn main(
 	txn_data_encoded: pub [Field; constants::MAX_ENCODED_CHUNKS],
-	liquidity_providers_encoded: pub [[Field; 4]; constants::MAX_LIQUIDITY_PROVIDERS],
+	lp_reservation_data_encoded: pub [[Field; 4]; constants::MAX_LIQUIDITY_PROVIDERS],
 	order_nonce_encoded: pub [Field; 2],
 	expected_payout: pub u64,
+	lp_count: pub u64,
 	txn_data: [u8; constants::MAX_TXN_BYTES]
 ) {
 	assert_txn_data_is_equal(txn_data_encoded, txn_data);
 	
-	let liquidity_providers = decode_liqudity_providers(liquidity_providers_encoded);
+	let liquidity_providers = decode_liqudity_providers(lp_reservation_data_encoded);
 	assert_payment_utxos_exist(
 		txn_data,
 		liquidity_providers,
+		lp_count,
 		byte_lib::decode_field_encoded_hash(order_nonce_encoded),
 		expected_payout
 	);

@@ -84,7 +84,7 @@ fn main(
 	
     // Payment Verification
 
-	let mut payment_pub_input: [Field; constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4) + 2 + 1] = [0 as Field; 929];
+	let mut payment_pub_input: [Field; constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4) + 2 + 1 + 1] = [0 as Field; 930];
 	for i in 0..constants::MAX_ENCODED_CHUNKS {
 		payment_pub_input[i] = intermediate_hash_encoded_and_txn_data[i+2];
 	}
@@ -94,6 +94,7 @@ fn main(
 	payment_pub_input[constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4)] = order_nonce_encoded[0];
 	payment_pub_input[constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4) + 1] = order_nonce_encoded[1];
 	payment_pub_input[constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4) + 2] = expected_payout as Field;
+	payment_pub_input[constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4) + 3] = lp_count as Field;
 
 	
     std::verify_proof(

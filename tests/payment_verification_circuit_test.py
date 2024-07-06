@@ -12,7 +12,8 @@ from utils.rift_lib import (
     compute_block_hash,
     LiquidityProvider,
     create_lp_hash_verification_prover_toml,
-    BB
+    BB,
+    create_payment_verification_prover_toml
 )
 from utils.noir_lib import (
     initialize_noir_project_folder,
@@ -31,10 +32,10 @@ from utils.noir_lib import (
 
 from bitcoin import SelectParams
 from bitcoin.core import b2x, b2lx, lx, COIN, COutPoint, CTxOut, CTxIn, CTxInWitness, CTxWitness, CScriptWitness, CMutableTransaction, Hash160, CTransaction
-from bitcoin.core.script import CScript, OP_0, SignatureHash, SIGHASH_ALL, SIGVERSION_WITNESS_V0
+from bitcoin.core.script import CScript, OP_0, CScriptOp, SignatureHash, SIGHASH_ALL, SIGVERSION_WITNESS_V0
 from bitcoin.wallet import CBitcoinSecret, P2WPKHBitcoinAddress
 
-def create_simple_fake_payment() -> tuple[CMutableTransaction, str, str]:
+def create_simple_fake_payment() -> tuple[CMutableTransaction, str, str, int, str]:
     SelectParams("mainnet")
 
     # Create the (in)famous correct brainwallet secret key.
@@ -64,7 +65,10 @@ def create_simple_fake_payment() -> tuple[CMutableTransaction, str, str]:
     # Create the unsigned transaction.
     txin = CTxIn(COutPoint(lx(txid), vout))
     txout = CTxOut(amount_less_fee, target_scriptPubKey)
-    tx = CMutableTransaction([txin], [txout])
+    order_nonce = hashlib.sha256(b"Hello, world!")
+    inscription = CTxOut(0, CScript(bytes.fromhex("6a") + bytes.fromhex("20") + order_nonce.digest()))
+
+    tx = CMutableTransaction([txin], [txout, inscription])
 
     # Specify which transaction input is going to be signed for.
     txin_index = 0
@@ -72,6 +76,7 @@ def create_simple_fake_payment() -> tuple[CMutableTransaction, str, str]:
     # When signing a P2WPKH transaction, use an "implicit" script that isn't
     # specified in the scriptPubKey or the witness.
     redeem_script = address.to_redeemScript()
+
 
     # Calculate the signature hash for the transaction. This is then signed by the
     # private key that controls the UTXO being spent here at this txin_index.
@@ -94,19 +99,12 @@ def create_simple_fake_payment() -> tuple[CMutableTransaction, str, str]:
     # Done! Print the transaction to standard output. Show the transaction
     # serialization in hex (instead of bytes), and render the txid.
 
+    # debug
+
     circuit_txn_data = CTransaction(tx.vin, tx.vout, tx.nLockTime, tx.nVersion).serialize()
     txn_hash = tx.GetTxid().hex()
-    return tx, circuit_txn_data.hex(), txn_hash
+    return tx, circuit_txn_data.hex(), txn_hash, amount_less_fee, order_nonce.hexdigest()
 
-"""
-fn main(
-	txn_data_encoded: pub [Field; constants::MAX_ENCODED_CHUNKS],
-	liquidity_providers_encoded: pub [[Field; 4]; constants::MAX_LIQUIDITY_PROVIDERS],
-	order_nonce_encoded: pub [Field; 2],
-	expected_payout: pub u64,
-	txn_data: [u8; constants::MAX_TXN_BYTES]
-) {
-"""
 
 async def test_single_theo_payment():
     print("Testing Single Theo Payment...")
@@ -114,11 +112,32 @@ async def test_single_theo_payment():
     COMPILATION_DIR = "circuits/payment_verification"
     print("Compiling payment verification circuit...")
     #await compile_project(COMPILATION_DIR)
-    txn, circuit_txn_data, txn_hash = create_simple_fake_payment()
-    print("txn", txn)
-    print("txn_hash", txn_hash)
-    print("circuit_txn_data", circuit_txn_data)
-    
+    txn, circuit_txn_data, txn_hash, value, order_nonce = create_simple_fake_payment()
+    exchange_rate = 1
+    lp = LiquidityProvider(
+        amount=value,
+        btc_exchange_rate=exchange_rate,
+        locking_script_hex="0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7"
+    )
+
+    await create_payment_verification_prover_toml(
+        txn_data_no_segwit_hex=circuit_txn_data,
+        lp_reservation_data=[lp],
+        lp_count=1,
+        order_nonce_hex=order_nonce,
+        expected_payout=value,
+        compilation_build_folder=COMPILATION_DIR
+    )
+
+    # [3] build verification key, create proof, and verify proof
+    vk = "./target/vk"
+    print("Building verification key...")
+    await build_raw_verification_key(vk, COMPILATION_DIR, BB)
+    print("Creating proof...")
+    await create_proof(pub_inputs=930, vk_path=vk, compilation_dir=COMPILATION_DIR, bb_binary=BB)
+    print("Verifying proof...")
+    await verify_proof(vk_path=vk, compilation_dir=COMPILATION_DIR, bb_binary=BB)
+    print("single theo payment verification successful!")
 
 
 
