@@ -41,31 +41,6 @@ struct TxOut {
     txout_script: [u8; MAX_SCRIPTSIG_SIZE],          // Script itself as a vector of bytes
 }
 
-
-struct MinifiedTxn {
-    version: u32,				// 4 bytes: for the version number
-	// marker: Option<u8>,				// 1 byte: must be `00`
-    // flag: Option<u8>,				// 1 byte: must be `01` or greater 
-    in_counter: u64,			// 1-9 bytes CompInt for the number of inputs
-    // inputs: Vec<TxIn>,				// A vector of TxIn structs
-    out_counter: u64,			// 1-9 bytes CompInt the number of outputs
-    outputs: BoundedVec<TxOut, constants::MAX_LIQUIDITY_PROVIDERS>,// A vector of TxOut structs
-    // witnesses: Option<Vec<Witness>>,// Optional, present if there is witness data
-    // lock_time: u32,					// 4 bytes for the lock_time
-}
-
-impl MinifiedTxn {
-    fn new(
-        version: u32,
-        in_counter: u64,
-        out_counter: u64,
-        outputs: BoundedVec<TxOut, constants::MAX_LIQUIDITY_PROVIDERS>,
-    ) -> MinifiedTxn {
-        MinifiedTxn { version, in_counter, out_counter, outputs }
-    }
-}
-
-
 // what
 global COMP_TIME_2: CompConstant<2> = CompConstant::new();
 global COMP_TIME_3: CompConstant<3> = CompConstant::new();
@@ -77,8 +52,6 @@ global COMP_TIME_8: CompConstant<8> = CompConstant::new();
 global COMP_TIME_9: CompConstant<9> = CompConstant::new();
 global COMP_TIME_22: CompConstant<22> = CompConstant::new();
 global COMP_TIME_32: CompConstant<32> = CompConstant::new();
-
-
 
 fn to_int<N>(bytes: [u8; N]) -> u64 {
     bytes.fold(0 as u64, |acc: u64, b: u8| ((acc << 8) | (b as u64)))
@@ -188,7 +161,7 @@ pub fn assert_payment_utxos_exist(
 	order_nonce: [u8; 32],
 	expected_payout: u64
 ) {
-    let version: u32 = to_int(byte_lib::grab_bytes_le(COMP_TIME_4, txn_data, 0)) as u32;
+    //let version: u32 = to_int(byte_lib::grab_bytes_le(COMP_TIME_4, txn_data, 0)) as u32;
     let mut is_segwit = false;
     if (txn_data[4] == 0x00) & (txn_data[5] >= 0x01) {
         is_segwit = true;
@@ -252,6 +225,7 @@ pub fn assert_payment_utxos_exist(
 	let (sig_counter, sig_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
 	data_pointer += sig_counter_byte_len as u64;
 
+	// inscription should be 32 bytes + 2 bytes for opcodes
 	assert(sig_counter == 34);
 
 	assert(txn_data[data_pointer] == OP_RETURN_CODE);
