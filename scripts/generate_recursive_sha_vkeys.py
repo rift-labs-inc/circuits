@@ -151,7 +151,7 @@ async def mine_batch(start_chunk: int):
     BB_BINARY = BB
     CIRCUIT_GEN_CONCURRENCY_LIM = 5 
     VERIFICATION_KEY_HASH_PREFIX = "generated_sha_circuits/vk_hash_"
-    SHA_CIRCUIT_FS = await load_recursive_sha_circuit()
+    SHA_CIRCUIT_FS = await load_recursive_sha_circuit("circuits/recursive_sha/src/main.nr")
     # this shouldn't change:
     BATCH_CHUNK_SIZE = 1000
     CHUNK_SIZE = 1000
@@ -228,7 +228,7 @@ async def run_batched_gen():
         start = int(
             sys.argv[1]
         )  # Convert the first command-line argument to an integer
-    except ValueError:
+    except IndexError:
         print("Error: The start chunk must be an integer/exist.")
         sys.exit(1)  # Exit the program with an error code
 
