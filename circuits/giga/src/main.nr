@@ -23,7 +23,7 @@ fn main(
 	order_nonce_encoded: pub [Field; 2],
 	expected_payout: pub u64,
 	lp_count: pub u64,
-	liquidity_providers_flat_encoded: [Field; constants::MAX_LIQUIDITY_PROVIDERS*4],
+	lp_reservation_data_flat_encoded: [Field; constants::MAX_LIQUIDITY_PROVIDERS*4],
     // Block Verification
 	confirmation_block_hash_encoded: pub [Field; 2],
 	proposed_block_hash_encoded: pub [Field; 2],
@@ -71,7 +71,7 @@ fn main(
 	lp_hash_pub_input[0] = lp_reservation_hash_encoded[0];
 	lp_hash_pub_input[1] = lp_reservation_hash_encoded[1];
 	for i in 0..constants::MAX_LIQUIDITY_PROVIDERS*4{
-		lp_hash_pub_input[i+2] = liquidity_providers_flat_encoded[i];
+		lp_hash_pub_input[i+2] = lp_reservation_data_flat_encoded[i];
 	}
 	lp_hash_pub_input[constants::MAX_LIQUIDITY_PROVIDERS*4 + 2] = lp_count as Field;
 
@@ -89,7 +89,7 @@ fn main(
 		payment_pub_input[i] = intermediate_hash_encoded_and_txn_data[i+2];
 	}
 	for i in 0..(constants::MAX_LIQUIDITY_PROVIDERS*4) {
-		payment_pub_input[i+constants::MAX_ENCODED_CHUNKS] = liquidity_providers_flat_encoded[i];
+		payment_pub_input[i+constants::MAX_ENCODED_CHUNKS] = lp_reservation_data_flat_encoded[i];
 	}
 	payment_pub_input[constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4)] = order_nonce_encoded[0];
 	payment_pub_input[constants::MAX_ENCODED_CHUNKS + (constants::MAX_LIQUIDITY_PROVIDERS*4) + 1] = order_nonce_encoded[1];
