@@ -15,7 +15,7 @@ import aiofiles
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils.rift_lib import BB
+from utils.rift_lib import BB, load_recursive_sha_circuit
 
 
 def initiate_nargo_dir(sha_circuit_fs: dict[str, str]) -> tempfile.TemporaryDirectory:
@@ -144,12 +144,6 @@ def hex_string_to_byte_array(hex_string: str) -> list[int]:
     return byte_array
 
 
-async def load_recursive_sha_circuit():
-    # Load the circuit file
-    async with aiofiles.open("circuits/recursive_sha/src/main.nr", "r") as file:
-        return {
-            "src/main.nr": await file.read()
-        }
 
 
 async def mine_batch(start_chunk: int):

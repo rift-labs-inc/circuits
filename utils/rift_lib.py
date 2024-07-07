@@ -1,8 +1,12 @@
 # utils to create witness data and verify proofs in python 
 import hashlib
-from pydantic import BaseModel
+import os
+import math
 import json
+
+from pydantic import BaseModel
 from eth_abi.abi import encode as eth_abi_encode
+import aiofiles
 
 
 from utils.noir_lib import (
@@ -284,3 +288,98 @@ async def create_payment_verification_prover_toml(
     
     print("Creating witness...")
     await create_witness(prover_toml_string, compilation_build_folder)
+
+
+
+
+
+async def load_recursive_sha_circuit(circuit_path: str):
+    # Load the circuit file
+    async with aiofiles.open(circuit_path, "r") as file:
+        return {
+            "src/main.nr": await file.read()
+        }
+
+async def initialize_recursive_sha_build_folder(bytelen: int, circuit_path: str):
+    NAME = "dynamic_sha_lib"
+    sha_circuit_fs = await load_recursive_sha_circuit(circuit_path)
+    lines = sha_circuit_fs['src/main.nr'].split("\n")
+    for i, line in enumerate(lines):
+        if "[REPLACE]" in line:
+            #global BYTELEN: u32 = 7000; // [REPLACE]
+            lines[i] = f"global BYTELEN: u32 = {bytelen};"
+            break
+    subcircuit_source = "\n".join(lines)
+    return await initialize_noir_project_folder({
+        'src/main.nr': subcircuit_source,
+    }, NAME)
+
+
+async def create_recursive_sha_witness(normalized_hex_str: str, max_chunks: int, compilation_dir: str):
+    data_hash = hashlib.sha256(bytes.fromhex(normalized_hex_str)).hexdigest()
+    encoded_data = pad_list(
+        split_hex_into_31_byte_chunks(normalized_hex_str), max_chunks, "0x00"
+    )
+    expected_hash_encoded = split_hex_into_31_byte_chunks(data_hash)
+
+    output = f"encoded_data={json.dumps(encoded_data)}\nexpected_hash_encoded={json.dumps(expected_hash_encoded)}"
+    await create_witness(output, compilation_dir)
+
+async def extract_cached_recursive_sha_vkey_data(
+    bytelen: int, chunk_file: str
+) -> tuple[str, list[str], str]:
+    async with aiofiles.open(chunk_file, "r") as file:
+        blob = json.loads(await file.read())[str(bytelen)]
+        return (blob["vk_as_fields"][0], blob["vk_as_fields"][1:], blob["vk_bytes"])
+
+
+def validate_bytelen(bytelen: int, max_bytes: int):
+    if bytelen > MAX_ENCODED_CHUNKS*31 or bytelen < 1:
+        raise Exception("Invalid bytelength")
+
+
+def get_chunk_file_name(chunk_id: int):
+    return f"vk_hash_{chunk_id:04d}.json"
+
+
+async def build_recursive_sha256_proof_and_input(
+    data_hex_str: str,
+    circuit_path: str = "circuits/recursive_sha/src/main.nr",
+    chunk_folder: str = "generated_sha_circuits/",
+    max_bytes: int = 7000,
+    max_chunks: int = 226
+) -> dict:
+    data = normalize_hex_str(data_hex_str)
+
+    bytelen = len(data) // 2
+
+    validate_bytelen(bytelen, max_bytes)
+
+    vkey_hash, vkey_as_fields, vk_hexstr_bytes = await extract_cached_recursive_sha_vkey_data(
+        bytelen,
+        os.path.join(
+            chunk_folder, get_chunk_file_name(math.floor((bytelen - 1) / 1000))
+        ),
+    )
+    build_folder = await initialize_recursive_sha_build_folder(bytelen, circuit_path)
+
+    vk_file = "public_input_proxy_vk"
+    async with aiofiles.open(os.path.join(build_folder.name, vk_file), "wb+") as f:
+        await f.write(bytes.fromhex(vk_hexstr_bytes))
+
+    await compile_project(build_folder.name)
+    await create_recursive_sha_witness(data, max_chunks, build_folder.name)
+    public_inputs_as_fields, proof_as_fields = await create_proof(
+        vk_file,
+        int.from_bytes(bytes.fromhex(normalize_hex_str(vkey_as_fields[4])), "big"),
+        build_folder.name,
+        BB,
+    )
+    build_folder.cleanup()
+    return {
+        "verification_key": vkey_as_fields,
+        "proof": proof_as_fields,
+        "public_inputs": public_inputs_as_fields,
+        "key_hash_index": bytelen - 1,
+        "key_hash": vkey_hash,
+    }

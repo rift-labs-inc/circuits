@@ -1,15 +1,30 @@
 import os
 import sys
+import traceback
 import asyncio
+import math
+import hashlib
+import time
+import multiprocessing
+import psutil
+from typing import Any
+import aiofiles
+import json
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.fetch_block_data import fetch_block_data
 from utils.rift_lib import (
+    MAX_ENCODED_CHUNKS,
     Block,
+    build_recursive_sha256_proof_and_input,
     compute_block_hash,
-    BB
+    BB,
+    create_recursive_sha_witness,
+    extract_cached_recursive_sha_vkey_data,
+    initialize_recursive_sha_build_folder,
+    load_recursive_sha_circuit
 )
 from utils.noir_lib import (
     initialize_noir_project_folder,
@@ -25,27 +40,31 @@ from utils.noir_lib import (
     verify_proof
 )
 
+
+
 async def test_recursive_sha():
     # [0] compile project folder
-    COMPILATION_DIR = "circuits/recursive_sha"
-    PUB_INPUTS = 1
-    print("Compiling recursive sha hash verification circuit...")
-    await compile_project(COMPILATION_DIR)
-    # [1] create prover toml and witness
-    print("Creating prover toml and witness...")
-    # [3] build verification key, create proof, and verify proof
-    vk = "./target/vk"
-    print("Building verification key...")
-    await build_raw_verification_key(vk, COMPILATION_DIR, BB)
-    print("Creating proof...")
-    await create_proof(pub_inputs=703, vk_path=vk, compilation_dir=COMPILATION_DIR, bb_binary=BB)
-    print("Verifying proof...")
-    await verify_proof(vk_path=vk, compilation_dir=COMPILATION_DIR, bb_binary=BB)
-    print("recursive sha verification successful!")
+    print("Test recursive sha...")
+    data = "deadeadeadeaddeadeadeadbeefbefbebfbefbefbeefbeeeeeeeeeeeeeeeeeeeeeeeeeeeef"
+    await build_recursive_sha256_proof_and_input(data)
+    print("done!")
+
+async def test_recursive_sha_too_big():
+    # [0] compile project folder
+    print("Test recursive sha data too big...")
+    data = "de" * 7100
+    try:
+        await build_recursive_sha256_proof_and_input(data)
+        raise Exception("Should have failed")
+    except Exception as e:
+        if "Invalid bytelength" not in traceback.format_exc():
+            raise e
+    print("done!")
 
 
 def main():
     asyncio.run(test_recursive_sha())
+    asyncio.run(test_recursive_sha_too_big())
 
 
 if __name__ == "__main__":
