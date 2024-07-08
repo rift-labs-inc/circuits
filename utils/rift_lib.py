@@ -366,7 +366,7 @@ def validate_bytelen(bytelen: int, max_bytes: int):
 
 
 def get_chunk_file_name(chunk_id: int):
-    return f"vk_hash_{chunk_id:04d}.json"
+    return f"vk_chunk_{chunk_id:04d}.json"
 
 
 async def build_recursive_sha256_proof_and_input(

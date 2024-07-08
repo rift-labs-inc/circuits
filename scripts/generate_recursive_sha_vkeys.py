@@ -150,7 +150,7 @@ async def mine_batch(start_chunk: int):
     assert start_chunk >= 0
     BB_BINARY = BB
     CIRCUIT_GEN_CONCURRENCY_LIM = 5 
-    VERIFICATION_KEY_HASH_PREFIX = "generated_sha_circuits/vk_hash_"
+    VERIFICATION_KEY_HASH_PREFIX = "generated_sha_circuits/vk_chunk_"
     SHA_CIRCUIT_FS = await load_recursive_sha_circuit("circuits/recursive_sha/src/main.nr")
     # this shouldn't change:
     BATCH_CHUNK_SIZE = 1000

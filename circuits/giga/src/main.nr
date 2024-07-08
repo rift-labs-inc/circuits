@@ -4,11 +4,9 @@ use dep::rift_lib::constants;
 
 mod sha256_circuit_hashes;
 mod sha256_merkle;
+mod recursive_circuit_hashes;
 
 //  TODO: Make these real
-global payment_verification_circuit_key_hash: Field = 0x0;
-global block_verification_circuit_key_hash: Field = 0x2a06e0724cf3bf56203acdbd36591c0bdeff54eecbb4b4b73df0caff8a3ee02c;
-global lp_hash_verification_key_hash: Field = 0x0;
 
 // Verifies a rift payment utxo end-to-end 
 fn main(
@@ -78,7 +76,7 @@ fn main(
         lp_hash_verification_key.as_slice(),
         lp_hash_proof.as_slice(),
         lp_hash_pub_input.as_slice(),
-        lp_hash_verification_key_hash
+        recursive_circuit_hashes::lp_hash_verification_key_hash
     );
 
     // Payment Verification
@@ -98,7 +96,7 @@ fn main(
         payment_verification_key.as_slice(),
         payment_proof.as_slice(),
         payment_pub_input.as_slice(),
-        payment_verification_circuit_key_hash
+        recursive_circuit_hashes::payment_verification_circuit_key_hash
     );
 
     // Block Verification
@@ -121,6 +119,6 @@ fn main(
         block_verification_key.as_slice(),
         block_proof.as_slice(),
         block_pub_input,
-        block_verification_circuit_key_hash
+        recursive_circuit_hashes::block_verification_circuit_key_hash
     );
 }

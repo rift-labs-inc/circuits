@@ -11,7 +11,7 @@ def read_json_files(directory):
     return data
 
 def main():
-    directory = './generated_circuit_data'
+    directory = './generated_sha_circuits'
     
     all_chunks = read_json_files(directory)
 
