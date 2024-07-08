@@ -20,6 +20,22 @@ pyenv virtualenv 3.11 rift
 python -m pip install -r requirements.txt
 ```
 
+
+### Tests
+To test any of the scattered unit tests, `cd` into the directory of the subcircuit you want to test and run:
+```
+nargo test --show-output`
+```
+
+E2E tests can be run from the root directory with:
+```
+python tests/block_circuit_test.py
+python tests/payment_circuit_test.py
+python tests/lp_circuit_test.py
+python tests/sha256_circuit_test.py
+```
+
+
 ### Create Subcircuit Verification Keys
 
 #### Standard Recursive Circuits 
