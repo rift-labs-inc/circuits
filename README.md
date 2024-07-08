@@ -8,9 +8,11 @@
 sudo apt install libgmp3-dev build-essential
 ```
 </details>
+
 **Install**<br>
-[pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#automatic-installer)<br>
-[noir](https://noir-lang.org/docs/getting_started/installation/#installing-noirup)<br>
+- [Pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#automatic-installer)<br>
+- [Noir](https://noir-lang.org/docs/getting_started/installation/#installing-noirup)<br>
+
 **Then run**<br>
 ```
 noirup --version 0.30.0
@@ -27,7 +29,7 @@ To test any of the scattered unit tests, `cd` into the directory of the subcircu
 nargo test --show-output
 ```
 
-E2E tests can be run from the root directory with:
+E2E tests can be run from the root directory:
 ```
 python tests/block_circuit_test.py
 python tests/payment_circuit_test.py
@@ -37,6 +39,7 @@ python tests/sha256_circuit_test.py
 
 
 ### Create Subcircuit Verification Keys
+The `Giga` circuit needs verification key hashes to validate the subcircuits it recurses, these can be generated with the following commands.
 
 #### Standard Recursive Circuits 
 Generates the verification key hashes for the standard recursive circuits (lp hash, block, payment), slow to run.
