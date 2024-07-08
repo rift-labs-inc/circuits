@@ -8,10 +8,10 @@
 sudo apt install libgmp3-dev build-essential
 ```
 </details>
-
+**Install**<br>
 [pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#automatic-installer)<br>
 [noir](https://noir-lang.org/docs/getting_started/installation/#installing-noirup)<br>
-
+**Then run**<br>
 ```
 noirup --version 0.30.0
 cd circuits/lp_hash_verification && $HOME/.nargo/bin/nargo info # trigger install of barratenberg
@@ -24,7 +24,7 @@ python -m pip install -r requirements.txt
 ### Tests
 To test any of the scattered unit tests, `cd` into the directory of the subcircuit you want to test and run:
 ```
-nargo test --show-output`
+nargo test --show-output
 ```
 
 E2E tests can be run from the root directory with:
