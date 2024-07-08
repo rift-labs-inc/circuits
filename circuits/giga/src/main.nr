@@ -6,8 +6,6 @@ mod sha256_circuit_hashes;
 mod sha256_merkle;
 mod recursive_circuit_hashes;
 
-//  TODO: Make these real
-
 // Verifies a rift payment utxo end-to-end 
 fn main(
     // Transaction Hash Verification

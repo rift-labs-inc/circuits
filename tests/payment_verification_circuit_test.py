@@ -96,7 +96,7 @@ async def test_single_theo_payment():
         locking_script_hex="0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7"
     )
 
-    await build_recursive_payment_proof_and_input(
+    output = await build_recursive_payment_proof_and_input(
         lps=[lp],
         txn_data_no_segwit_hex=circuit_txn_data,
         order_nonce_hex=order_nonce,

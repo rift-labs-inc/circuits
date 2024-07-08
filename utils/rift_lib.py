@@ -318,8 +318,133 @@ async def create_payment_verification_prover_toml(
     await create_witness(prover_toml_string, compilation_build_folder)
 
 
+def hash_pairs(hex_str1, hex_str2):
+    """Hash two hex strings together using double SHA-256 and return the hex result."""
+    # Convert hex strings to binary, in little-endian format
+    bin1 = bytes.fromhex(hex_str1)[::-1]
+    bin2 = bytes.fromhex(hex_str2)[::-1]
+    
+    # Combine the binary data
+    combined = bin1 + bin2
+    
+    # Double SHA-256 hashing
+    hash_once = hashlib.sha256(combined).digest()
+    hash_twice = hashlib.sha256(hash_once).digest()
+    
+    # Return the result as a hex string, in little-endian format
+    return hash_twice[::-1].hex()
+
+def generate_merkle_proof(txn_hashes: list, target_hash: str):
+    """Generate a Merkle proof for the target hash."""
+    proof = []
+    target_index = txn_hashes.index(target_hash)
+    depth = 0
+    while len(txn_hashes) > 1:
+        new_level = []
+        if len(txn_hashes) % 2 == 1:
+            txn_hashes.append(txn_hashes[-1])
+        for i in range(0, len(txn_hashes), 2):
+            left, right = txn_hashes[i], txn_hashes[i+1]
+            if i <= target_index < i+2:
+                if target_index == i:
+                    proof.append((right, 'right'))
+                else:
+                    proof.append((left, 'left'))
+                target_hash = hash_pairs(left, right)
+            new_level.append(hash_pairs(left, right))
+        txn_hashes = new_level
+        target_index //= 2
+        depth += 1
+    print(f"Proof: {proof}")
+    print(f"Depth of the Merkle Tree: {depth}")
+    
+    return proof
+
+def create_merkle_proof_toml(proof: list):
+    toml_str = ""
+    for i, (hash, direction) in enumerate(proof):
+        flag = "true" if direction == 'right' else "false"
+        toml_str += (f"[[proposed_merkle_proof]] # {i+1}\nhash = {list(bytes.fromhex(normalize_hex_str(hash)))}\ndirection = {flag}\n\n")
+    
+    # Determine how many padding entries are needed
+    num_padding_entries = 20 - len(proof)
+    
+    # Padding with 0 u8 32-byte arrays if needed
+    for j in range(num_padding_entries):
+        toml_str += (f"[[proposed_merkle_proof]] # {len(proof) + j + 1}\nhash = {list(bytes.fromhex('00'*32))}\ndirection = false\n\n")
+
+    return toml_str
+
+
+
+
+"""
+fn main(
+    // Transaction Hash Verification
+    txn_hash_encoded: pub [Field; 2],
+    intermediate_hash_encoded_and_txn_data: [Field; constants::MAX_ENCODED_CHUNKS + 2],
+    // Transaction Inclusion Verification
+    proposed_merkle_root_encoded: [Field; 2],
+    proposed_merkle_proof: [sha256_merkle::MerkleProofStep; 20],
+    // Payment Verification + Lp Hash Verification
+    lp_reservation_hash_encoded: pub [Field; 2],
+    order_nonce_encoded: pub [Field; 2],
+    expected_payout: pub u64,
+    lp_count: pub u64,
+    lp_reservation_data_flat_encoded: [Field; constants::MAX_LIQUIDITY_PROVIDERS*4],
+    // Block Verification
+    confirmation_block_hash_encoded: pub [Field; 2],
+    proposed_block_hash_encoded: pub [Field; 2],
+    safe_block_hash_encoded: pub [Field; 2],
+    retarget_block_hash_encoded: pub [Field; 2],
+    safe_block_height: pub u64,
+    block_height_delta: pub u64,
+    // Proof Data
+    lp_hash_verification_key: [Field; 114],
+    lp_hash_proof: [Field; 93],
+    txn_hash_verification_key: [Field; 114],
+    txn_hash_proof: [Field; 93],
+    txn_hash_vk_hash_index: u64,
+    payment_verification_key: [Field; 114],
+    payment_proof: [Field; 93],
+    block_verification_key: [Field; 114],
+    block_proof: [Field; 93]
+) {
+"""
+
+async def create_giga_circuit_prover_toml(
+    txn_hash_hex: str,
+    intermediate_hash_hex: str,
+    txn_data_no_segwit_hex: str,
+    proposed_merkle_root_hex: str,
+    proposed_merkle_proof: list,
+    lp_reservation_hash_hex: str,
+    order_nonce_hex: str,
+    expected_payout: int,
+    lp_reservation_data: list[LiquidityProvider],
+    confirmation_block_hash_hex: str,
+    proposed_block_hash_hex: str,
+    safe_block_hash_hex: str,
+    retarget_block_hash_hex: str,
+    safe_block_height: int,
+    block_height_delta: int,
+    lp_hash_verification_key: list[str],
+    lp_hash_proof: list[str],
+    txn_hash_verification_key: list[str],
+    txn_hash_proof: list[str],
+    txn_hash_vk_hash_index: int,
+    payment_verification_key: list[str],
+    payment_proof: list[str],
+    block_verification_key: list[str],
+    block_proof: list[str],
+    compilation_build_folder: str,
+    verify: bool = False
+):
+    pass
+    # TODO_ALPINE: Finish add args
+
 async def load_recursive_sha_circuit(circuit_path: str):
-    # Load the circuit file
+# Load the circuit file
     async with aiofiles.open(circuit_path, "r") as file:
         return {
             "src/main.nr": await file.read()
@@ -545,3 +670,8 @@ async def build_recursive_payment_proof_and_input(
         public_inputs=public_inputs_as_fields,
         key_hash=vkey_hash
     )
+
+
+
+async def build_giga_circuit_proof_and_input():
+    pass
