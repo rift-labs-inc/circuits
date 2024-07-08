@@ -87,7 +87,7 @@ async def build_raw_verification_key(
     command = f"{bb_binary} write_vk -o {vk_file}"
     await run_command(command, compilation_dir)
 
-async def extract_vk_as_fields(vk_file: str, compilation_dir: str, bb_binary: str) -> dict:
+async def extract_vk_as_fields(vk_file: str, compilation_dir: str, bb_binary: str) -> list:
     command = f"{bb_binary} vk_as_fields -k {vk_file} -o -"
     stdout = await run_command(command, compilation_dir)
     return json.loads(stdout)

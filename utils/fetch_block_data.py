@@ -1,4 +1,5 @@
 import httpx
+import asyncio
 from utils.rift_lib import Block
 
 async def fetch_block_data(height: int):
@@ -23,3 +24,22 @@ async def fetch_block_data(height: int):
                 raise Exception(f"API returned an error for height {height}: {data.get('message', 'No message')}")
         else:
             raise Exception(f"Failed to fetch block data for height {height}, HTTP status {response.status_code}")
+
+
+async def fetch_initial_block_input(proposed_block_height: int, safe_block_height: int, retarget_height: int):
+    num_inner_blocks = proposed_block_height - safe_block_height
+    print(f"Fetching block data from height {safe_block_height + 1} to {safe_block_height + num_inner_blocks}...")
+    inner_blocks = await asyncio.gather(*[
+        fetch_block_data(height) for height in range(safe_block_height + 1, safe_block_height + num_inner_blocks)])
+
+    print(f"Fetching block data from height {proposed_block_height+1} to {proposed_block_height + 7}...")
+    confirmation_blocks = await asyncio.gather(*[
+        fetch_block_data(height) for height in range(proposed_block_height+1, proposed_block_height+7)])
+    if not inner_blocks or not confirmation_blocks:
+        raise Exception("No inner blocks to process.")
+
+    retarget_block = await fetch_block_data(retarget_height)
+    safe_block = await fetch_block_data(safe_block_height)
+    proposed_block = await fetch_block_data(proposed_block_height)
+
+    return proposed_block, safe_block, retarget_block, inner_blocks, confirmation_blocks

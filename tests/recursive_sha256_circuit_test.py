@@ -14,32 +14,9 @@ import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils.fetch_block_data import fetch_block_data
 from utils.rift_lib import (
-    MAX_ENCODED_CHUNKS,
-    Block,
-    build_recursive_sha256_proof_and_input,
-    compute_block_hash,
-    BB,
-    create_recursive_sha_witness,
-    extract_cached_recursive_sha_vkey_data,
-    initialize_recursive_sha_build_folder,
-    load_recursive_sha_circuit
+    build_recursive_sha256_proof_and_input
 )
-from utils.noir_lib import (
-    initialize_noir_project_folder,
-    compile_project,
-    create_witness,
-    normalize_hex_str,
-    pad_list,
-    hex_string_to_byte_array,
-    split_hex_into_31_byte_chunks,
-    create_proof,
-    build_raw_verification_key,
-    extract_vk_as_fields,
-    verify_proof
-)
-
 
 
 async def test_recursive_sha():

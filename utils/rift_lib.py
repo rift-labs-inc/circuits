@@ -1,4 +1,4 @@
-# utils to create witness data and verify proofs in python 
+# utils to create witness data and verify proofs in python
 import hashlib
 import os
 import math
@@ -27,10 +27,23 @@ BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
 MAX_ENCODED_CHUNKS = 226
 MAX_LIQUIDITY_PROVIDERS = 175
 
+
+class RecursiveProofArtifact(BaseModel):
+    verification_key: list[str]
+    proof: list[str]
+    public_inputs: list[str]
+    key_hash: str
+
+
+class RecursiveSha256ProofArtifact(RecursiveProofArtifact):
+    key_hash_index: int
+
+
 class LiquidityProvider(BaseModel):
     amount: int
     btc_exchange_rate: int
     locking_script_hex: str
+
 
 class Block(BaseModel):
     height: int
@@ -40,6 +53,7 @@ class Block(BaseModel):
     timestamp: int
     bits: int
     nonce: int
+
 
 def compute_block_hash(block: Block) -> str:
     """
@@ -55,19 +69,22 @@ def compute_block_hash(block: Block) -> str:
     # Note: Bitcoin serializes these values in little-endian format.
     header_hex = (
         block.version.to_bytes(4, 'little') +
-        bytes.fromhex(block.prev_block_hash)[::-1] +  # Reverse to little-endian
-        bytes.fromhex(block.merkle_root)[::-1] +      # Reverse to little-endian
+        # Reverse to little-endian
+        bytes.fromhex(block.prev_block_hash)[::-1] +
+        # Reverse to little-endian
+        bytes.fromhex(block.merkle_root)[::-1] +
         block.timestamp.to_bytes(4, 'little') +
         block.bits.to_bytes(4, 'little') +
         block.nonce.to_bytes(4, 'little')
     )
-    
+
     # Perform double SHA-256 hashing.
     hash1 = hashlib.sha256(header_hex).digest()
     hash2 = hashlib.sha256(hash1).digest()
 
     # Bitcoin presents hashes in little-endian format, so we reverse before returning.
     return hash2[::-1].hex()
+
 
 async def block_toml_encoder(block: Block) -> list[str]:
     return [
@@ -79,7 +96,6 @@ async def block_toml_encoder(block: Block) -> list[str]:
         f"timestamp={block.timestamp}",
         f"version={block.version}",
     ]
-
 
 
 async def create_block_verification_prover_toml_witness(
@@ -114,23 +130,32 @@ async def create_block_verification_prover_toml_witness(
 
     if len(inner_block_hashes_hex) > MAX_INNER_BLOCKS:
         raise ValueError(f"Too many inner blocks. Max is {MAX_INNER_BLOCKS}")
-    
+
     padded_inner_blocks = pad_list(inner_blocks, MAX_INNER_BLOCKS, NULL_BLOCK)
 
-    padded_confirmation_blocks = pad_list(confirmation_blocks, CONFIRMATION_BLOCK_DELTA, NULL_BLOCK)
+    padded_confirmation_blocks = pad_list(
+        confirmation_blocks, CONFIRMATION_BLOCK_DELTA, NULL_BLOCK)
 
-    proposed_merkle_root_encoded = split_hex_into_31_byte_chunks(proposed_merkle_root_hex)
-    confirmation_block_hash_encoded = split_hex_into_31_byte_chunks(confirmation_block_hash_hex)
-    proposed_block_hash_encoded = split_hex_into_31_byte_chunks(proposed_block_hash_hex)
-    safe_block_hash_encoded = split_hex_into_31_byte_chunks(safe_block_hash_hex)
-    retarget_block_hash_encoded = split_hex_into_31_byte_chunks(retarget_block_hash_hex)
-    inner_block_hashes_encoded = [split_hex_into_31_byte_chunks(inner_block_hash) for inner_block_hash in inner_block_hashes_hex]
+    proposed_merkle_root_encoded = split_hex_into_31_byte_chunks(
+        proposed_merkle_root_hex)
+    confirmation_block_hash_encoded = split_hex_into_31_byte_chunks(
+        confirmation_block_hash_hex)
+    proposed_block_hash_encoded = split_hex_into_31_byte_chunks(
+        proposed_block_hash_hex)
+    safe_block_hash_encoded = split_hex_into_31_byte_chunks(
+        safe_block_hash_hex)
+    retarget_block_hash_encoded = split_hex_into_31_byte_chunks(
+        retarget_block_hash_hex)
+    inner_block_hashes_encoded = [split_hex_into_31_byte_chunks(
+        inner_block_hash) for inner_block_hash in inner_block_hashes_hex]
 
-    confirmation_block_hashes_encoded = [split_hex_into_31_byte_chunks(confirmation_block_hash) for confirmation_block_hash in confirmation_block_hashes_hex]
+    confirmation_block_hashes_encoded = [split_hex_into_31_byte_chunks(
+        confirmation_block_hash) for confirmation_block_hash in confirmation_block_hashes_hex]
 
-    padded_inner_block_hashes_encoded = pad_list(inner_block_hashes_encoded, MAX_INNER_BLOCKS, ["0x0", "0x0"])
-    padded_confirmation_block_hashes_encoded = pad_list(confirmation_block_hashes_encoded, 6, ["0x0", "0x0"])
-
+    padded_inner_block_hashes_encoded = pad_list(
+        inner_block_hashes_encoded, MAX_INNER_BLOCKS, ["0x0", "0x0"])
+    padded_confirmation_block_hashes_encoded = pad_list(
+        confirmation_block_hashes_encoded, 6, ["0x0", "0x0"])
 
     prover_toml_string = "\n".join(
         [
@@ -148,7 +173,7 @@ async def create_block_verification_prover_toml_witness(
             f"confirmation_block_hashes_encoded={json.dumps(padded_confirmation_block_hashes_encoded)}",
             "",
 
-            
+
             "[proposed_block]",
             *await block_toml_encoder(proposed_block),
             "",
@@ -168,7 +193,7 @@ async def create_block_verification_prover_toml_witness(
                 ) for block in padded_confirmation_blocks
             ],
             "",
-            
+
             *[
                 "\n".join(
                     ["[[inner_blocks]]"] + await block_toml_encoder(block)
@@ -200,7 +225,8 @@ async def create_lp_hash_verification_prover_toml(
         list(map(lambda lp: split_hex_into_31_byte_chunks(
             eth_abi_encode(
                 ["uint192", "uint64", "bytes32"],
-                [lp.amount, lp.btc_exchange_rate, bytes.fromhex(normalize_hex_str(lp.locking_script_hex))]
+                [lp.amount, lp.btc_exchange_rate, bytes.fromhex(
+                    normalize_hex_str(lp.locking_script_hex))]
             ).hex()
         ), lp_reservation_data)),
         MAX_LIQUIDITY_PROVIDERS,
@@ -215,7 +241,8 @@ async def create_lp_hash_verification_prover_toml(
                 [
                     lp_reservation_data[i].amount,
                     lp_reservation_data[i].btc_exchange_rate,
-                    bytes.fromhex(normalize_hex_str(lp_reservation_data[i].locking_script_hex)),
+                    bytes.fromhex(normalize_hex_str(
+                        lp_reservation_data[i].locking_script_hex)),
                     bytes.fromhex(vault_hash_hex)
                 ]
             )
@@ -230,11 +257,9 @@ async def create_lp_hash_verification_prover_toml(
             f"lp_count={len(lp_reservation_data)}",
         ]
     )
-    
+
     print("Creating witness...")
     await create_witness(prover_toml_string, compilation_build_folder)
-
-
 
 
 async def create_payment_verification_prover_toml(
@@ -261,19 +286,22 @@ async def create_payment_verification_prover_toml(
         list(map(lambda lp: split_hex_into_31_byte_chunks(
             eth_abi_encode(
                 ["uint192", "uint64", "bytes32"],
-                [lp.amount, lp.btc_exchange_rate, bytes.fromhex(normalize_hex_str(lp.locking_script_hex))]
+                [lp.amount, lp.btc_exchange_rate, bytes.fromhex(
+                    normalize_hex_str(lp.locking_script_hex))]
             ).hex()
         ), lp_reservation_data)),
         MAX_LIQUIDITY_PROVIDERS,
         ["0x0"] * 4
     )
 
-
-    txn_data_encoded = pad_list(split_hex_into_31_byte_chunks(normalize_hex_str(txn_data_no_segwit_hex)), MAX_ENCODED_CHUNKS, "0x0")
+    txn_data_encoded = pad_list(split_hex_into_31_byte_chunks(
+        normalize_hex_str(txn_data_no_segwit_hex)), MAX_ENCODED_CHUNKS, "0x0")
     # turns this into a list of 1 byte chunks
-    txn_data = pad_list(list(bytes.fromhex(normalize_hex_str(txn_data_no_segwit_hex))), 31*MAX_ENCODED_CHUNKS, 0)
+    txn_data = pad_list(list(bytes.fromhex(normalize_hex_str(
+        txn_data_no_segwit_hex))), 31*MAX_ENCODED_CHUNKS, 0)
 
-    order_nonce_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(order_nonce_hex))
+    order_nonce_encoded = split_hex_into_31_byte_chunks(
+        normalize_hex_str(order_nonce_hex))
 
     prover_toml_string = "\n".join(
         [
@@ -285,12 +313,9 @@ async def create_payment_verification_prover_toml(
             f"txn_data={json.dumps(txn_data)}",
         ]
     )
-    
+
     print("Creating witness...")
     await create_witness(prover_toml_string, compilation_build_folder)
-
-
-
 
 
 async def load_recursive_sha_circuit(circuit_path: str):
@@ -300,13 +325,14 @@ async def load_recursive_sha_circuit(circuit_path: str):
             "src/main.nr": await file.read()
         }
 
+
 async def initialize_recursive_sha_build_folder(bytelen: int, circuit_path: str):
     NAME = "dynamic_sha_lib"
     sha_circuit_fs = await load_recursive_sha_circuit(circuit_path)
     lines = sha_circuit_fs['src/main.nr'].split("\n")
     for i, line in enumerate(lines):
         if "[REPLACE]" in line:
-            #global BYTELEN: u32 = 7000; // [REPLACE]
+            # global BYTELEN: u32 = 7000; // [REPLACE]
             lines[i] = f"global BYTELEN: u32 = {bytelen};"
             break
     subcircuit_source = "\n".join(lines)
@@ -324,6 +350,7 @@ async def create_recursive_sha_witness(normalized_hex_str: str, max_chunks: int,
 
     output = f"encoded_data={json.dumps(encoded_data)}\nexpected_hash_encoded={json.dumps(expected_hash_encoded)}"
     await create_witness(output, compilation_dir)
+
 
 async def extract_cached_recursive_sha_vkey_data(
     bytelen: int, chunk_file: str
@@ -348,7 +375,7 @@ async def build_recursive_sha256_proof_and_input(
     chunk_folder: str = "generated_sha_circuits/",
     max_bytes: int = 7000,
     max_chunks: int = 226
-) -> dict:
+) -> RecursiveSha256ProofArtifact:
     data = normalize_hex_str(data_hex_str)
 
     bytelen = len(data) // 2
@@ -371,15 +398,150 @@ async def build_recursive_sha256_proof_and_input(
     await create_recursive_sha_witness(data, max_chunks, build_folder.name)
     public_inputs_as_fields, proof_as_fields = await create_proof(
         vk_file,
-        int.from_bytes(bytes.fromhex(normalize_hex_str(vkey_as_fields[4])), "big"),
+        int.from_bytes(bytes.fromhex(
+            normalize_hex_str(vkey_as_fields[4])), "big"),
         build_folder.name,
         BB,
     )
     build_folder.cleanup()
-    return {
-        "verification_key": vkey_as_fields,
-        "proof": proof_as_fields,
-        "public_inputs": public_inputs_as_fields,
-        "key_hash_index": bytelen - 1,
-        "key_hash": vkey_hash,
-    }
+    return RecursiveSha256ProofArtifact(
+        verification_key=vkey_as_fields,
+        proof=proof_as_fields,
+        public_inputs=public_inputs_as_fields,
+        key_hash_index=bytelen - 1,
+        key_hash=vkey_hash,
+    )
+
+
+async def build_recursive_lp_hash_proof_and_input(
+    lps: list[LiquidityProvider],
+    circuit_path: str = "circuits/lp_hash_verification",
+    verify: bool = False
+):
+    print("Compiling lp hash verification circuit...")
+    await compile_project(circuit_path)
+    # [1] create prover toml and witness
+    print("Creating prover toml and witness...")
+    await create_lp_hash_verification_prover_toml(
+        lp_reservation_data=lps,
+        compilation_build_folder=circuit_path
+    )
+    # [3] build verification key, create proof, and verify proof
+    vk_file = "./target/vk"
+    print("Building verification key...")
+    await build_raw_verification_key(vk_file, circuit_path, BB)
+    print("Creating proof...")
+    public_inputs_as_fields, proof_as_fields = await create_proof(
+        pub_inputs=703,
+        vk_path=vk_file,
+        compilation_dir=circuit_path,
+        bb_binary=BB
+    )
+    encoded_vkey = await extract_vk_as_fields(vk_file, circuit_path, BB)
+    vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
+    if verify:
+        print("Verifying proof...")
+        await verify_proof(vk_path=vk_file, compilation_dir=circuit_path, bb_binary=BB)
+
+    print("lp hash verification successful!")
+
+    return RecursiveProofArtifact(
+        verification_key=vkey_as_fields,
+        proof=proof_as_fields,
+        public_inputs=public_inputs_as_fields,
+        key_hash=vkey_hash
+    )
+
+
+async def build_recursive_block_proof_and_input(
+    proposed_block: Block,
+    safe_block: Block,
+    retarget_block: Block,
+    inner_blocks: list[Block],
+    confirmation_blocks: list[Block],
+    circuit_path: str = "circuits/block_verification",
+    verify: bool = False
+):
+    num_inner_blocks = proposed_block.height - safe_block.height
+    print("Compiling block verification circuit...")
+    await compile_project(circuit_path)
+    # [2] create prover toml and witness
+    print("Creating prover toml and witness...")
+    await create_block_verification_prover_toml_witness(
+        proposed_merkle_root_hex=proposed_block.merkle_root,
+        confirmation_block_hash_hex=compute_block_hash(
+            confirmation_blocks[-1]),
+        proposed_block_hash_hex=compute_block_hash(proposed_block),
+        safe_block_hash_hex=compute_block_hash(safe_block),
+        retarget_block_hash_hex=compute_block_hash(retarget_block),
+        safe_block_height=safe_block.height,
+        block_height_delta=proposed_block.height - safe_block.height,
+        proposed_block=proposed_block,
+        safe_block=safe_block,
+        retarget_block=retarget_block,
+        inner_block_hashes_hex=[compute_block_hash(
+            block) for block in inner_blocks],
+        inner_blocks=inner_blocks,
+        confirmation_block_hashes_hex=[compute_block_hash(
+            block) for block in confirmation_blocks],
+        confirmation_blocks=confirmation_blocks,
+        compilation_build_folder=circuit_path
+    )
+    # [3] build verification key, create proof, and verify proof
+    vk = "./target/vk"
+    print("Building verification key...")
+    await build_raw_verification_key(vk, circuit_path, BB)
+    print("Creating proof...")
+    public_inputs_as_fields, proof_as_fields = await create_proof(pub_inputs=12, vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    if verify:
+        print("Verifying proof...")
+        await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    print(f"Proof with {num_inner_blocks + 1} total blocks verified!")
+    encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
+    vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
+    return RecursiveProofArtifact(
+        verification_key=vkey_as_fields,
+        proof=proof_as_fields,
+        public_inputs=public_inputs_as_fields,
+        key_hash=vkey_hash
+    )
+
+
+async def build_recursive_payment_proof_and_input(
+        lps: list[LiquidityProvider],
+        txn_data_no_segwit_hex: str,
+        order_nonce_hex: str,
+        expected_payout: int,
+        circuit_path: str = "circuits/payment_verification",
+        verify: bool = False
+):
+    print("Compiling payment verification circuit...")
+    await compile_project(circuit_path)
+    # [1] create prover toml and witnesses
+    print("Creating prover toml and witness...")
+    await create_payment_verification_prover_toml(
+        txn_data_no_segwit_hex=txn_data_no_segwit_hex,
+        lp_reservation_data=lps,
+        lp_count=len(lps),
+        order_nonce_hex=order_nonce_hex,
+        expected_payout=expected_payout,
+        compilation_build_folder=circuit_path
+    )
+    # [3] build verification key, create proof, and verify Proof
+    vk = "./target/vk"
+    print("Building verification key...")
+    await build_raw_verification_key(vk, circuit_path, BB)
+    print("Creating proof...")
+    public_inputs_as_fields, proof_as_fields = await create_proof(pub_inputs=930, vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    if verify:
+        print("Verifying proof...")
+        await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    print("Payment verification successful!")
+    encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
+    vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
+    return RecursiveProofArtifact(
+        verification_key=vkey_as_fields,
+        proof=proof_as_fields,
+        public_inputs=public_inputs_as_fields,
+        key_hash=vkey_hash
+    )
