@@ -10,6 +10,7 @@ import aiofiles
 
 
 from utils.noir_lib import (
+    create_solidity_proof,
     initialize_noir_project_folder,
     compile_project,
     create_witness,
@@ -27,6 +28,9 @@ BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
 MAX_ENCODED_CHUNKS = 226
 MAX_LIQUIDITY_PROVIDERS = 175
 
+
+class SolidityProofArtifact(BaseModel):
+    proof: str 
 
 class RecursiveProofArtifact(BaseModel):
     verification_key: list[str]
@@ -437,11 +441,60 @@ async def create_giga_circuit_prover_toml(
     payment_proof: list[str],
     block_verification_key: list[str],
     block_proof: list[str],
-    compilation_build_folder: str,
-    verify: bool = False
+    compilation_build_folder: str
 ):
-    pass
-    # TODO_ALPINE: Finish add args
+    txn_hash_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(txn_hash_hex))
+    intermediate_hash_encoded_and_txn_data = split_hex_into_31_byte_chunks(normalize_hex_str(intermediate_hash_hex)) + split_hex_into_31_byte_chunks(normalize_hex_str(txn_data_no_segwit_hex))
+    proposed_merkle_root_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(proposed_merkle_root_hex))
+
+    lp_reservation_hash_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(lp_reservation_hash_hex))
+    order_nonce_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(order_nonce_hex))
+    lp_reservation_data_flat_encoded = sum(pad_list(
+        list(map(lambda lp: split_hex_into_31_byte_chunks(
+            eth_abi_encode(
+                ["uint192", "uint64", "bytes32"],
+                [lp.amount, lp.btc_exchange_rate, bytes.fromhex(
+                    normalize_hex_str(lp.locking_script_hex))]
+            ).hex()
+        ), lp_reservation_data)),
+        MAX_LIQUIDITY_PROVIDERS,
+        ["0x0"] * 4
+    ), [])
+    prover_toml_string = "\n".join(
+        [
+            f"txn_hash_encoded={json.dumps(txn_hash_encoded)}",
+            f"intermediate_hash_encoded_and_txn_data={json.dumps(intermediate_hash_encoded_and_txn_data)}",
+            f"proposed_merkle_root_encoded={json.dumps(proposed_merkle_root_encoded)}",
+            "",
+            create_merkle_proof_toml(proposed_merkle_proof),
+            "",
+            f"lp_reservation_hash_encoded={json.dumps(lp_reservation_hash_encoded)}",
+            f"order_nonce_encoded={json.dumps(order_nonce_encoded)}",
+            f"expected_payout={expected_payout}",
+            f"lp_count={len(lp_reservation_data)}",
+            f"lp_reservation_data_flat_encoded={json.dumps(lp_reservation_data_flat_encoded)}",
+            f"confirmation_block_hash_encoded={json.dumps(split_hex_into_31_byte_chunks(normalize_hex_str(confirmation_block_hash_hex)))}",
+            f"proposed_block_hash_encoded={json.dumps(split_hex_into_31_byte_chunks(normalize_hex_str(proposed_block_hash_hex)))}",
+            f"safe_block_hash_encoded={json.dumps(split_hex_into_31_byte_chunks(normalize_hex_str(safe_block_hash_hex)))}",
+            f"retarget_block_hash_encoded={json.dumps(split_hex_into_31_byte_chunks(normalize_hex_str(retarget_block_hash_hex)))}",
+            f"safe_block_height={safe_block_height}",
+            f"block_height_delta={block_height_delta}",
+            "",
+            f"lp_hash_verification_key={json.dumps(lp_hash_verification_key)}",
+            f"lp_hash_proof={json.dumps(lp_hash_proof)}",
+            f"txn_hash_verification_key={json.dumps(txn_hash_verification_key)}",
+            f"txn_hash_proof={json.dumps(txn_hash_proof)}",
+            f"txn_hash_vk_hash_index={txn_hash_vk_hash_index}",
+            f"payment_verification_key={json.dumps(payment_verification_key)}",
+            f"payment_proof={json.dumps(payment_proof)}",
+            f"block_verification_key={json.dumps(block_verification_key)}",
+            f"block_proof={json.dumps(block_proof)}",
+        ]
+    )
+
+    print("Creating witness...")
+    await create_witness(prover_toml_string, compilation_build_folder)
+
 
 async def load_recursive_sha_circuit(circuit_path: str):
 # Load the circuit file
@@ -492,6 +545,7 @@ def validate_bytelen(bytelen: int, max_bytes: int):
 
 def get_chunk_file_name(chunk_id: int):
     return f"vk_chunk_{chunk_id:04d}.json"
+
 
 
 async def build_recursive_sha256_proof_and_input(
@@ -671,7 +725,96 @@ async def build_recursive_payment_proof_and_input(
         key_hash=vkey_hash
     )
 
+async def build_giga_circuit_proof_and_input(
+    txn_data_no_segwit_hex: str,
+    lp_reservations: list[LiquidityProvider],
+    proposed_block_txn_hashes: list[str],
+    proposed_block_header: Block,
+    safe_block_header: Block,
+    retarget_block_header: Block,
+    inner_block_headers: list[Block],
+    confirmation_block_headers: list[Block],
+    order_nonce_hex: str,
+    expected_payout: int,
+    safe_block_height: int,
+    block_height_delta: int,
+    circuit_path: str = "circuits/giga/src/main.nr"
+    ):
+    # [1] compile giga 
+    print("Compiling giga circuit...")
+    await compile_project(circuit_path)
+    
+    # [2] build recursive proofs and inputs 
+    print("Creating prover toml and witness...")
+    sha_recursive_artifact = await build_recursive_sha256_proof_and_input(
+        data_hex_str=txn_data_no_segwit_hex
+    )
+    lp_hash_recursive_artifact = await build_recursive_lp_hash_proof_and_input(
+        lps=lp_reservations
+    )
+    block_recursive_artifact = await build_recursive_block_proof_and_input(
+        proposed_block=proposed_block_header,
+        safe_block=safe_block_header,
+        retarget_block=retarget_block_header,
+        inner_blocks=inner_block_headers,
+        confirmation_blocks=confirmation_block_headers
+    )
+    payment_recursive_artifact = await build_recursive_payment_proof_and_input(
+        lps=lp_reservations,
+        txn_data_no_segwit_hex=txn_data_no_segwit_hex,
+        order_nonce_hex=order_nonce_hex,
+        expected_payout=expected_payout
+    )
 
 
-async def build_giga_circuit_proof_and_input():
-    pass
+    # [3] create prover toml and witnesses
+    intermediate_hash_hex = hashlib.sha256(bytes.fromhex(normalize_hex_str(txn_data_no_segwit_hex))).hexdigest()
+    txn_hash_hex = hashlib.sha256(bytes.fromhex(intermediate_hash_hex)).hexdigest()
+
+    merkle_proof = generate_merkle_proof(
+        txn_hashes=list(map(lambda hash: normalize_hex_str(hash), proposed_block_txn_hashes)),
+        target_hash=normalize_hex_str(txn_hash_hex)
+    )
+
+    confirmation_block_hash_hex = compute_block_hash(confirmation_block_headers[-1])
+    proposed_block_hash_hex = compute_block_hash(proposed_block_header)
+    safe_block_hash_hex = compute_block_hash(safe_block_header)
+    retarget_block_hash_hex = compute_block_hash(retarget_block_header)
+    
+
+
+    await create_giga_circuit_prover_toml(
+        txn_hash_hex=txn_hash_hex,
+        intermediate_hash_hex=intermediate_hash_hex,
+        txn_data_no_segwit_hex=txn_data_no_segwit_hex,
+        proposed_merkle_root_hex=proposed_block_header.merkle_root,
+        proposed_merkle_proof=merkle_proof,
+        lp_reservation_hash_hex=lp_hash_recursive_artifact.key_hash,
+        order_nonce_hex=order_nonce_hex,
+        expected_payout=expected_payout,
+        lp_reservation_data=lp_reservations,
+        confirmation_block_hash_hex=confirmation_block_hash_hex,
+        proposed_block_hash_hex=proposed_block_hash_hex,
+        safe_block_hash_hex=safe_block_hash_hex,
+        retarget_block_hash_hex=retarget_block_hash_hex,
+        safe_block_height=safe_block_height,
+        block_height_delta=block_height_delta,
+        lp_hash_verification_key=lp_hash_recursive_artifact.verification_key,
+        lp_hash_proof=lp_hash_recursive_artifact.proof,
+        txn_hash_verification_key=sha_recursive_artifact.verification_key,
+        txn_hash_proof=sha_recursive_artifact.proof,
+        txn_hash_vk_hash_index=sha_recursive_artifact.key_hash_index,
+        payment_verification_key=payment_recursive_artifact.verification_key,
+        payment_proof=payment_recursive_artifact.proof,
+        block_verification_key=block_recursive_artifact.verification_key,
+        block_proof=block_recursive_artifact.proof,
+        compilation_build_folder=circuit_path
+    )
+
+    print("Creating proof...")
+    proof_hex = normalize_hex_str(await create_solidity_proof(project_name="giga", compilation_dir=circuit_path))
+    print("Giga circuit proof gen successful!")
+    return SolidityProofArtifact(
+        proof=proof_hex
+    )
+

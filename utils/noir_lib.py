@@ -79,6 +79,16 @@ async def create_witness(prover_toml_string: str, compilation_dir: str):
     command = "nargo execute witness"
     await run_command(command, compilation_dir, strict_failure=False)
 
+
+# Project name is name of noir project
+async def create_solidity_proof(project_name: str, compilation_dir: str):
+    command = "nargo prove"
+    await run_command(command, compilation_dir, strict_failure=False)
+    async with aiofiles.open(
+        os.path.join(compilation_dir, "proofs", (project_name + ".proof")), "r"
+    ) as file:
+        return await file.read()
+
 # BB WRAPPERS
 
 async def build_raw_verification_key(

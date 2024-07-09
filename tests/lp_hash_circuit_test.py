@@ -8,8 +8,6 @@ from utils.rift_lib import (
     build_recursive_lp_hash_proof_and_input,
     LiquidityProvider,
 )
-from utils.fetch_block_data import fetch_block_data
-
 
 async def test_single_lp():
     print("Testing Single LP...")
