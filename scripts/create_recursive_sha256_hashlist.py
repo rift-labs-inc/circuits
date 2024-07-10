@@ -11,18 +11,16 @@ def read_json_files(directory):
     return data
 
 def main():
-    directory = './generated_sha_circuits'
     
+    total_bytes = 7000
+    directory = './generated_sha_circuits'
     all_chunks = read_json_files(directory)
-
     all_keys = {}
-    largest_circuit_bytelen = 1000
     for file, chunk in all_chunks.items():
         for bytelen in chunk:
             all_keys[int(bytelen)] = chunk[bytelen]["vk_as_fields"][0]
-            largest_circuit_bytelen = max(largest_circuit_bytelen, int(bytelen))
     print("global CIRCUIT_HASH_LIST = [", end="")
-    [print(all_keys[i], end="," if i != largest_circuit_bytelen else "") for i in range(1, largest_circuit_bytelen + 1)]
+    [print(all_keys[i], end="," if i != total_bytes else "") for i in range(1, total_bytes+1)]
     print("];")
     
     

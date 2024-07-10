@@ -53,9 +53,9 @@ async def main():
     lp_hash = await get_lp_hash_verification_vk_hash()
     payment_hash = await get_payment_verification_vk_hash()
 
-    print(dedent(f"""global payment_verification_circuit_key_hash: Field = {payment_hash};
-        global block_verification_circuit_key_hash: Field = {block_hash};
-        global lp_hash_verification_key_hash: Field = {lp_hash};"""
+    print(dedent(f"""    global payment_verification_circuit_key_hash: Field = {payment_hash};
+    global block_verification_circuit_key_hash: Field = {block_hash};
+    global lp_hash_verification_key_hash: Field = {lp_hash};"""
     ))
 
 if __name__ == "__main__":
