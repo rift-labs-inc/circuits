@@ -57,6 +57,7 @@ class Block(BaseModel):
     timestamp: int
     bits: int
     nonce: int
+    txns: list[str]
 
 
 def compute_block_hash(block: Block) -> str:

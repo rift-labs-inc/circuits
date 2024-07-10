@@ -12,6 +12,20 @@ from utils.btc_data import fetch_block_data_mainnet_public
 
 
 
+"""
+funnction that takes proposed_block_height: int, safe_block_height: int, txn_hash: str, as input
+returns:
+    - txn_data_no_segwit_hex: str
+    - proposed_block_txn_hashes: List[str]
+    - proposed_block_header: Block
+    - safe_block_header: Block
+    - retarget_block_header: Block
+    - inner_block_headers: List[Block]
+    - confirmation_block_headers: List[Block]
+    - block_height_delta: int
+
+
+"""
 
 async def test_real_simple_payment_testnet():
     print("Testing real simple payment on testnet...")

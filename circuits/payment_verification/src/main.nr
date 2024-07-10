@@ -213,7 +213,6 @@ pub fn assert_payment_utxos_exist(
 			assert(lockingScript == reserved_liquidity_providers[i].script_pub_key);
 			calculated_payout += value / reserved_liquidity_providers[i].btc_exchange_rate;
 
-			// TODO: Here, assert that all the LP data exists
 			data_pointer += sig_counter;
 		}
 	}
