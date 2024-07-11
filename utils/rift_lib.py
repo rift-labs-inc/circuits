@@ -21,6 +21,7 @@ from utils.noir_lib import (
     create_proof,
     build_raw_verification_key,
     extract_vk_as_fields,
+    split_hex_into_31_byte_chunks_padded,
     verify_proof
 )
 
@@ -130,7 +131,8 @@ async def create_block_verification_prover_toml_witness(
         merkle_root='0' * 64,
         timestamp=0,
         bits=0,
-        nonce=0
+        nonce=0,
+        txns=[]
     )
 
     if len(inner_block_hashes_hex) > MAX_INNER_BLOCKS:
@@ -299,7 +301,7 @@ async def create_payment_verification_prover_toml(
         ["0x0"] * 4
     )
 
-    txn_data_encoded = pad_list(split_hex_into_31_byte_chunks(
+    txn_data_encoded = pad_list(split_hex_into_31_byte_chunks_padded(
         normalize_hex_str(txn_data_no_segwit_hex)), MAX_ENCODED_CHUNKS, "0x0")
     # turns this into a list of 1 byte chunks
     txn_data = pad_list(list(bytes.fromhex(normalize_hex_str(
@@ -360,8 +362,6 @@ def generate_merkle_proof(txn_hashes: list, target_hash: str):
         txn_hashes = new_level
         target_index //= 2
         depth += 1
-    print(f"Proof: {proof}")
-    print(f"Depth of the Merkle Tree: {depth}")
     
     return proof
 
@@ -445,7 +445,7 @@ async def create_giga_circuit_prover_toml(
     compilation_build_folder: str
 ):
     txn_hash_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(txn_hash_hex))
-    intermediate_hash_encoded_and_txn_data = split_hex_into_31_byte_chunks(normalize_hex_str(intermediate_hash_hex)) + split_hex_into_31_byte_chunks(normalize_hex_str(txn_data_no_segwit_hex))
+    intermediate_hash_encoded_and_txn_data = split_hex_into_31_byte_chunks(normalize_hex_str(intermediate_hash_hex)) + pad_list(split_hex_into_31_byte_chunks(normalize_hex_str(txn_data_no_segwit_hex)), MAX_ENCODED_CHUNKS, "0x0")
     proposed_merkle_root_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(proposed_merkle_root_hex))
 
     lp_reservation_hash_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(lp_reservation_hash_hex))
@@ -464,32 +464,54 @@ async def create_giga_circuit_prover_toml(
     prover_toml_string = "\n".join(
         [
             f"txn_hash_encoded={json.dumps(txn_hash_encoded)}",
+            "",
             f"intermediate_hash_encoded_and_txn_data={json.dumps(intermediate_hash_encoded_and_txn_data)}",
+            "",
             f"proposed_merkle_root_encoded={json.dumps(proposed_merkle_root_encoded)}",
             "",
-            create_merkle_proof_toml(proposed_merkle_proof),
-            "",
             f"lp_reservation_hash_encoded={json.dumps(lp_reservation_hash_encoded)}",
+            "",
             f"order_nonce_encoded={json.dumps(order_nonce_encoded)}",
+            "",
             f"expected_payout={expected_payout}",
+            "",
             f"lp_count={len(lp_reservation_data)}",
+            "",
             f"lp_reservation_data_flat_encoded={json.dumps(lp_reservation_data_flat_encoded)}",
+            "",
             f"confirmation_block_hash_encoded={json.dumps(split_hex_into_31_byte_chunks(normalize_hex_str(confirmation_block_hash_hex)))}",
+            "",
             f"proposed_block_hash_encoded={json.dumps(split_hex_into_31_byte_chunks(normalize_hex_str(proposed_block_hash_hex)))}",
+            "",
             f"safe_block_hash_encoded={json.dumps(split_hex_into_31_byte_chunks(normalize_hex_str(safe_block_hash_hex)))}",
+            "",
             f"retarget_block_hash_encoded={json.dumps(split_hex_into_31_byte_chunks(normalize_hex_str(retarget_block_hash_hex)))}",
+            "",
             f"safe_block_height={safe_block_height}",
+            "",
             f"block_height_delta={block_height_delta}",
             "",
             f"lp_hash_verification_key={json.dumps(lp_hash_verification_key)}",
+            "",
             f"lp_hash_proof={json.dumps(lp_hash_proof)}",
+            "",
             f"txn_hash_verification_key={json.dumps(txn_hash_verification_key)}",
+            "",
             f"txn_hash_proof={json.dumps(txn_hash_proof)}",
+            "",
             f"txn_hash_vk_hash_index={txn_hash_vk_hash_index}",
+            "",
             f"payment_verification_key={json.dumps(payment_verification_key)}",
+            "",
             f"payment_proof={json.dumps(payment_proof)}",
+            "",
             f"block_verification_key={json.dumps(block_verification_key)}",
+            "",
             f"block_proof={json.dumps(block_proof)}",
+            "",
+            "",
+            create_merkle_proof_toml(proposed_merkle_proof),
+            "",
         ]
     )
 
@@ -574,7 +596,9 @@ async def build_recursive_sha256_proof_and_input(
     async with aiofiles.open(os.path.join(build_folder.name, vk_file), "wb+") as f:
         await f.write(bytes.fromhex(vk_hexstr_bytes))
 
+    print("Compiling recursive sha256 circuit...")
     await compile_project(build_folder.name)
+    print("Creating witness...")
     await create_recursive_sha_witness(data, max_chunks, build_folder.name)
     public_inputs_as_fields, proof_as_fields = await create_proof(
         vk_file,
@@ -583,6 +607,7 @@ async def build_recursive_sha256_proof_and_input(
         build_folder.name,
         BB,
     )
+    print("SHA256 proof created!")
     build_folder.cleanup()
     return RecursiveSha256ProofArtifact(
         verification_key=vkey_as_fields,
@@ -623,7 +648,7 @@ async def build_recursive_lp_hash_proof_and_input(
         print("Verifying proof...")
         await verify_proof(vk_path=vk_file, compilation_dir=circuit_path, bb_binary=BB)
 
-    print("lp hash verification successful!")
+    print("LP Hash proof gen successful!")
 
     return RecursiveProofArtifact(
         verification_key=vkey_as_fields,
@@ -676,7 +701,7 @@ async def build_recursive_block_proof_and_input(
     if verify:
         print("Verifying proof...")
         await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
-    print(f"Proof with {num_inner_blocks + 1} total blocks verified!")
+    print(f"Block proof with {num_inner_blocks + 1 + 6} total blocks created!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
     return RecursiveProofArtifact(
@@ -716,7 +741,7 @@ async def build_recursive_payment_proof_and_input(
     if verify:
         print("Verifying proof...")
         await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
-    print("Payment verification successful!")
+    print("Payment verification proof gen successful!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
     return RecursiveProofArtifact(
@@ -729,7 +754,6 @@ async def build_recursive_payment_proof_and_input(
 async def build_giga_circuit_proof_and_input(
     txn_data_no_segwit_hex: str,
     lp_reservations: list[LiquidityProvider],
-    proposed_block_txn_hashes: list[str],
     proposed_block_header: Block,
     safe_block_header: Block,
     retarget_block_header: Block,
@@ -739,20 +763,19 @@ async def build_giga_circuit_proof_and_input(
     expected_payout: int,
     safe_block_height: int,
     block_height_delta: int,
-    circuit_path: str = "circuits/giga/src/main.nr"
+    circuit_path: str = "circuits/giga"
     ):
     # [1] compile giga 
-    print("Compiling giga circuit...")
-    await compile_project(circuit_path)
     
     # [2] build recursive proofs and inputs 
-    print("Creating prover toml and witness...")
     sha_recursive_artifact = await build_recursive_sha256_proof_and_input(
         data_hex_str=txn_data_no_segwit_hex
     )
+    print()
     lp_hash_recursive_artifact = await build_recursive_lp_hash_proof_and_input(
         lps=lp_reservations
     )
+    print()
     block_recursive_artifact = await build_recursive_block_proof_and_input(
         proposed_block=proposed_block_header,
         safe_block=safe_block_header,
@@ -760,22 +783,26 @@ async def build_giga_circuit_proof_and_input(
         inner_blocks=inner_block_headers,
         confirmation_blocks=confirmation_block_headers
     )
+    print()
     payment_recursive_artifact = await build_recursive_payment_proof_and_input(
         lps=lp_reservations,
         txn_data_no_segwit_hex=txn_data_no_segwit_hex,
         order_nonce_hex=order_nonce_hex,
         expected_payout=expected_payout
     )
+    print()
 
 
     # [3] create prover toml and witnesses
     intermediate_hash_hex = hashlib.sha256(bytes.fromhex(normalize_hex_str(txn_data_no_segwit_hex))).hexdigest()
     txn_hash_hex = hashlib.sha256(bytes.fromhex(intermediate_hash_hex)).hexdigest()
 
+    print("Generating merkle proof...")
     merkle_proof = generate_merkle_proof(
-        txn_hashes=list(map(lambda hash: normalize_hex_str(hash), proposed_block_txn_hashes)),
-        target_hash=normalize_hex_str(txn_hash_hex)
+        txn_hashes=list(map(lambda hash: normalize_hex_str(hash), proposed_block_header.txns)),
+        target_hash=bytes.fromhex(normalize_hex_str(txn_hash_hex))[::-1].hex()
     )
+    print()
 
     confirmation_block_hash_hex = compute_block_hash(confirmation_block_headers[-1])
     proposed_block_hash_hex = compute_block_hash(proposed_block_header)
@@ -783,7 +810,9 @@ async def build_giga_circuit_proof_and_input(
     retarget_block_hash_hex = compute_block_hash(retarget_block_header)
     
 
-
+    print("Compiling giga circuit...")
+    await compile_project(circuit_path)
+    print("Creating prover toml and witness...")
     await create_giga_circuit_prover_toml(
         txn_hash_hex=txn_hash_hex,
         intermediate_hash_hex=intermediate_hash_hex,

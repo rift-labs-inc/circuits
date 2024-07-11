@@ -42,7 +42,7 @@ async def fetch_block_data_mainnet_public(height: int):
                     timestamp=block_data['timestamp'],
                     bits=block_data['bits'],
                     nonce=block_data['nonce'],
-                    txns=block_data['txs']
+                    txns=[]
                 )
             else:
                 raise Exception(
@@ -129,14 +129,12 @@ async def fetch_block_hash(height: int, rpc_url: str) -> str:
                 f"Failed to fetch block hash: HTTP {response.status_code}, Response: {response.text}")
 
 
-async def fetch_serialized_transaction_data_in_block(txn_hash: str, block_hash: str, rpc_url: str):
-    print("TxN HASH:", txn_hash)
-    print("Block HASH:", block_hash)
+async def fetch_transaction_data_in_block(txid: str, block_hash: str, rpc_url: str, verbose: bool = False):
     payload = json.dumps({
         "jsonrpc": "1.0",
         "id": "curltext",
         "method": "getrawtransaction",
-        "params": [txn_hash, False, block_hash]
+        "params": [txid, verbose, block_hash]
     })
 
     headers = {
@@ -153,6 +151,52 @@ async def fetch_serialized_transaction_data_in_block(txn_hash: str, block_hash: 
             raise Exception(
                 f"Failed to fetch txn data: HTTP {response.status_code}, Response: {response.text}")
 
+async def fetch_utxo_status(txid: str, vout: int, rpc_url: str):
+    payload = json.dumps({
+        "jsonrpc": "1.0",
+        "id": "curltext",
+        "method": "gettxout",
+        "params": [txid, vout]
+    })
+
+    headers = {
+        'content-type': 'text/plain;',
+    }
+
+    async with httpx.AsyncClient() as client:
+        # type:ignore
+        response = await client.post(rpc_url, data=payload, headers=headers) #type:ignore
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(
+                f"Failed to fetch utxo status: HTTP {response.status_code}, Response: {response.text}")
+
+
+async def broadcast_transaction(tx_hex: str, rpc_url: str):
+    payload = json.dumps({
+        "jsonrpc": "1.0",
+        "id": "curltext",
+        "method": "sendrawtransaction",
+        "params": [tx_hex]
+    })
+
+    headers = {
+        'content-type': 'text/plain;',
+    }
+
+    async with httpx.AsyncClient() as client:
+        # type:ignore
+        response = await client.post(rpc_url, data=payload, headers=headers) #type:ignore
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(
+                f"Failed to broadcast txn: HTTP {response.status_code}, Response: {response.text}")
+
+
+def get_rpc(mainnet: bool = True):
+    return os.environ["MAINNET_BITCOIN_RPC"] if mainnet else os.environ["TESTNET_BITCOIN_RPC"]
 
 class RiftBitcoinData(BaseModel):
     txn_data_no_segwit_hex: str
@@ -166,10 +210,10 @@ class RiftBitcoinData(BaseModel):
 # Uses an bitcoin rpc client to fetch block data, close to prod impl
 
 
-async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, txn_hash: str, mainnet: bool = True) -> RiftBitcoinData:
+async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, txid: str, mainnet: bool = True) -> RiftBitcoinData:
     # use bitcoin lib to fetch block Data
     SelectParams("mainnet" if mainnet else "testnet")
-    rpc_url = os.environ["MAINNET_BITCOIN_RPC"] if mainnet else os.environ["TESTNET_BITCOIN_RPC"]
+    rpc_url = get_rpc(mainnet)
     retarget_height = proposed_block_height - (proposed_block_height % 2016)
     num_inner_blocks = proposed_block_height - safe_block_height
 
@@ -203,15 +247,18 @@ async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, 
         fetch_block_data(proposed_block_hash, proposed_block_height, rpc_url),
         fetch_block_data(safe_block_hash, safe_block_height, rpc_url),
         fetch_block_data(retarget_block_hash, retarget_height, rpc_url),
-        fetch_serialized_transaction_data_in_block(txn_hash, proposed_block_hash, rpc_url)
+        fetch_transaction_data_in_block(txid, proposed_block_hash, rpc_url)
     ])
     await asyncio.sleep(1)
     inner_blocks = await fetch_inner_blocks()
     await asyncio.sleep(1)
     confirmation_blocks = await fetch_confirmation_blocks()
 
+    deserialized_txn = CTransaction.deserialize(bytes.fromhex(serialized_txn))
+    txn_data_no_segwit_hex = CTransaction(deserialized_txn.vin, deserialized_txn.vout, deserialized_txn.nLockTime, deserialized_txn.nVersion).serialize().hex()
+
     return RiftBitcoinData(
-        txn_data_no_segwit_hex=serialized_txn,
+        txn_data_no_segwit_hex=txn_data_no_segwit_hex,
         proposed_block_header=proposed_block,
         safe_block_header=safe_block,
         retarget_block_header=retarget_block,
@@ -226,7 +273,7 @@ if __name__ == "__main__":
         f.write(asyncio.run(get_rift_btc_data(
             proposed_block_height=2867121,
             safe_block_height=2867120,
-            txn_hash="cb1ed6a0f714d858325d139431a5b9ffd48d0402107f4ce41d00db34df473036",
+            txid="cb1ed6a0f714d858325d139431a5b9ffd48d0402107f4ce41d00db34df473036",
             mainnet=False
         )).model_dump_json())
 

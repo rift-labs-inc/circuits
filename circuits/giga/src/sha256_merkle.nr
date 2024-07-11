@@ -39,7 +39,11 @@ pub fn assert_merkle_proof_equality(
     proposed_txn_hash: [u8; 32],
     proposed_merkle_proof: [MerkleProofStep; 20],
 ) {
-    let mut current_hash = proposed_txn_hash;
+    let mut current_hash: [u8;32] = [0; 32];
+    for i in 0..32 {
+        current_hash[i] = proposed_txn_hash[31 - i];
+    }
+
     let zero_hash = [0; 32];
     let mut count = 0;
     for i in 0..20 {

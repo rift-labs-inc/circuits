@@ -172,6 +172,8 @@ pub fn assert_payment_utxos_exist(
     let mut data_pointer = 4; // version from 0:4
 	let (input_counter, input_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
     data_pointer += input_counter_byte_len as u64;
+    println("Input Counter: ");
+    println(input_counter);
 	assert(input_counter == MAX_INPUT_COUNT);
 
 	// we would extract inputs here if we cared about them
@@ -223,6 +225,8 @@ pub fn assert_payment_utxos_exist(
 	data_pointer += AMOUNT_LEN as u64;
 	let (sig_counter, sig_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
 	data_pointer += sig_counter_byte_len as u64;
+  print("sig_counter: ");
+  print(sig_counter);
 
 	// inscription should be 32 bytes + 2 bytes for opcodes
 	assert(sig_counter == 34);
@@ -274,7 +278,6 @@ fn main(
 		expected_payout
 	);
 }
-
 
 #[test]
 fn test_liquidity_provider_decoder(){
