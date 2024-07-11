@@ -5,7 +5,7 @@ use dep::rift_lib::byte_lib;
 global TARGET_PERIOD: u32 = 2016; // blocks between difficulty retargets
 global TARGET_TIMESPAN: u32 = 1209600; // goal time of 10 minutes per block * 2016 blocks
 global INNER_BLOCK_COUNT: u64 = 24; // if this is zero, then there's one safe block
-global CONFIRMATION_BLOCK_DELTA: u64 = 6;
+global CONFIRMATION_BLOCK_DELTA: u64 = 5;
 
 struct Block {
     height: u64,
@@ -102,8 +102,8 @@ fn verify_block(
     // TODO: Handle target properly regarding retarget, also potentially add a testnet flag
     // so that tests don't fail due to nonstandard difficulty calculation
     let proposed_target = bits_to_target(proposed_block.bits);
-    //let real_target = calculate_real_target(retarget_block, proposed_block);
-    //assert(proposed_target == real_target);
+    let real_target = calculate_real_target(retarget_block, proposed_block);
+    assert(proposed_target == real_target);
 
     // [2] verify the proposed block height is one greater than previous_block_height
     assert(proposed_block.height as u64 == previous_block_height + 1);

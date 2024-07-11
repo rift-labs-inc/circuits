@@ -25,10 +25,10 @@ class BitcoinWallet(BaseModel, arbitrary_types_allowed=True):
     address: str
 
 
-def get_testnet_wallet() -> BitcoinWallet:
+def get_wallet(mainnet: bool = True) -> BitcoinWallet:
     load_dotenv()
-    private_key = os.environ["TESTNET_BITCOIN_PRIVATE_KEY"]
-    SelectParams("testnet")
+    SelectParams("mainnet" if mainnet else "testnet")
+    private_key = os.environ["TESTNET_BITCOIN_PRIVATE_KEY"] if not mainnet else os.environ["MAINNET_BITCOIN_PRIVATE_KEY"]
 
     # Create the (in)famous correct brainwallet secret key.
     seckey = CBitcoinSecret.from_secret_bytes(bytes.fromhex(normalize_hex_str(private_key)))
@@ -44,9 +44,9 @@ def get_testnet_wallet() -> BitcoinWallet:
         address=str(address)
     )
 
-def get_secondary_testnet_wallets(num: int) -> list[BitcoinWallet]:
-    secret_base = os.environ['TESTNET_BITCOIN_SECONDARY_PRIVATE_KEY_BASE']
-    SelectParams("testnet")
+def get_secondary_wallets(num: int, mainnet: bool = True) -> list[BitcoinWallet]:
+    secret_base = os.environ['MAINNET_BITCOIN_SECONDARY_PRIVATE_KEY_BASE'] if mainnet else os.environ['TESTNET_BITCOIN_SECONDARY_PRIVATE_KEY_BASE']
+    SelectParams("mainnet" if mainnet else "testnet")
     wallets = []
     for i in range(num):
         secret_key = CBitcoinSecret.from_secret_bytes(hashlib.sha256((secret_base + str(i)).encode()).digest())
@@ -119,7 +119,7 @@ async def build_rift_payment_transaction(
     # Create the unsigned transaction.
     txin = CTxIn(COutPoint(bytes.fromhex(normalize_hex_str(in_txid_hex))[::-1], in_txvout), nSequence=0xfffffffd)
 
-    tx = CMutableTransaction([txin], [*lp_outputs, change_output]) #inscription, 
+    tx = CMutableTransaction([txin], [*lp_outputs, inscription, change_output])
 
     # Specify which transaction input is going to be signed for.
     txin_index = 0
@@ -162,29 +162,21 @@ async def build_rift_payment_transaction(
     }
 
 if __name__ == "__main__":
-    wallet = get_testnet_wallet()
-    lp_wallets = [LiquidityProvider(amount=1_000_000, btc_exchange_rate=1, locking_script_hex=wallet.unlock_script) for wallet in get_secondary_testnet_wallets(10)] 
+    mainnet = True
+    wallet = get_wallet(mainnet=mainnet)
+    lp_wallets = [LiquidityProvider(amount=420, btc_exchange_rate=1, locking_script_hex=wallet.unlock_script) for wallet in get_secondary_wallets(3, mainnet=True)] 
+    print("LP WALLETS", lp_wallets)
     unbroadcast_txn = asyncio.run(build_rift_payment_transaction(
         order_nonce_hex=hashlib.sha256(b"rift").hexdigest(),
         liquidity_providers=lp_wallets,
-        in_tx_block_hash_hex="0000000000006f2fa21b8d8dccd3a21af9cd81bfed2db1382fa98636154147d7",
-        in_txid_hex="6718c0391fc4cc0d2170bc99bdcfc6e57deafe08acc1f2ba6387371b85982a02",
-        in_txvout=11,
+        in_tx_block_hash_hex="000000000000000000034668ec702a564a51deff2b01bcd3ea17a5934792b3c1",
+        in_txid_hex="90e1921d161bf93d51da10422c74fab914fa14acdfa7ff6e5d1cfd0ef587c63e",
+        in_txvout=3,
         wallet=wallet,
-        rpc_url=get_rpc(mainnet=False),
-        mainnet=False,
-        fee_sats=900_000
+        rpc_url=get_rpc(mainnet=mainnet),
+        mainnet=mainnet,
+        fee_sats=1600
     ))
     print("Txn Data:", json.dumps(unbroadcast_txn, indent=2))
     # broadcast
-    print(asyncio.run(broadcast_transaction(unbroadcast_txn["tx"], get_rpc(mainnet=False))))
-    """
-    Txn Data: {
-      "txid_data": "0100000001022a98851b378763baf2c1ac08feea7de5c6cfbd99bc70210dccc41f39c018670b00000000fdffffff0b40420f00000000001600145a56436f3106b12a7e25df0b2facbc334ea6de5f40420f00000000001600140e9e91b8531fceb498204d17ef8d088ee0fa8d7a40420f00000000001600140c2eed55791ba08075baa9203dc89a12da2e0b3d40420f000000000016001441d5b79bf267c92aa387b99f4aa71cd88cb72a4440420f0000000000160014911a98c4e8ffc4f9f306402ac180ccbf4eba9d9440420f0000000000160014193f1ba0362901bd02fe7f750af4b71c4c07dbd840420f00000000001600140aa437977cb2d9992342ffa445dd08c216e6dee240420f0000000000160014f9f3a59d86bfc7849d1bcff2ecea69c4820fa04740420f0000000000160014c3198a9fddf935a49ff80bae5229d5dba079cae340420f0000000000160014802903cc08b1df3f445c11c7f19c2cd92f907e81c04c60640100000016001455d2d56a5a9314b63acb7c3b2567ff795179166400000000",
-      "txid": "387a650ebf14875b1f3f59ba6b32ca20e3387e3643419aef7169f0ce17e9502b",
-      "tx": "01000000000101022a98851b378763baf2c1ac08feea7de5c6cfbd99bc70210dccc41f39c018670b00000000fdffffff0b40420f00000000001600145a56436f3106b12a7e25df0b2facbc334ea6de5f40420f00000000001600140e9e91b8531fceb498204d17ef8d088ee0fa8d7a40420f00000000001600140c2eed55791ba08075baa9203dc89a12da2e0b3d40420f000000000016001441d5b79bf267c92aa387b99f4aa71cd88cb72a4440420f0000000000160014911a98c4e8ffc4f9f306402ac180ccbf4eba9d9440420f0000000000160014193f1ba0362901bd02fe7f750af4b71c4c07dbd840420f00000000001600140aa437977cb2d9992342ffa445dd08c216e6dee240420f0000000000160014f9f3a59d86bfc7849d1bcff2ecea69c4820fa04740420f0000000000160014c3198a9fddf935a49ff80bae5229d5dba079cae340420f0000000000160014802903cc08b1df3f445c11c7f19c2cd92f907e81c04c60640100000016001455d2d56a5a9314b63acb7c3b2567ff795179166402473044022030d4354c3b6547b7890bfb19ca5ba7bf5e0ed6daed3a27a23e2ee9e4302720e6022034c7ae686ae2e5fb9ee3cf5af503958426e390fea4045768c6aaa9fe89693cb2012102b14f0a5b2b39520d75bee0c6b655a0776e0db9b435163973d17788aa7d773f3100000000"
-    }
-    {'result': '2b50e917cef06971ef9a4143367e38e320ca326bba593f1f5b8714bf0e657a38', 'error': None, 'id': 'curltext'}
-    block hash: 000000000000001dd60372c3aaf4a8a20bdcc726b49707e552505f0b238b428e
-    """
-
+    print(asyncio.run(broadcast_transaction(unbroadcast_txn["tx"], get_rpc(mainnet=mainnet))))

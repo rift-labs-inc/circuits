@@ -28,6 +28,8 @@ from utils.noir_lib import (
 BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
 MAX_ENCODED_CHUNKS = 226
 MAX_LIQUIDITY_PROVIDERS = 175
+MAX_INNER_BLOCKS = 24
+CONFIRMATION_BLOCK_DELTA = 5
 
 
 class SolidityProofArtifact(BaseModel):
@@ -122,8 +124,6 @@ async def create_block_verification_prover_toml_witness(
     compilation_build_folder: str
 ):
     print("Generating prover toml...")
-    MAX_INNER_BLOCKS = 24
-    CONFIRMATION_BLOCK_DELTA = 6
     NULL_BLOCK = Block(
         height=0,
         version=0,
@@ -162,7 +162,7 @@ async def create_block_verification_prover_toml_witness(
     padded_inner_block_hashes_encoded = pad_list(
         inner_block_hashes_encoded, MAX_INNER_BLOCKS, ["0x0", "0x0"])
     padded_confirmation_block_hashes_encoded = pad_list(
-        confirmation_block_hashes_encoded, 6, ["0x0", "0x0"])
+        confirmation_block_hashes_encoded, CONFIRMATION_BLOCK_DELTA, ["0x0", "0x0"])
 
     prover_toml_string = "\n".join(
         [

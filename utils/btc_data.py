@@ -15,7 +15,7 @@ import httpx
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils.rift_lib import Block
+from utils.rift_lib import CONFIRMATION_BLOCK_DELTA, Block
 from utils.noir_lib import normalize_hex_str
 
 
@@ -224,7 +224,7 @@ async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, 
     ])
 
     async def fetch_confirmation_blocks():
-        height_list = [height for height in range(proposed_block_height+1, proposed_block_height+7)]
+        height_list = [height for height in range(proposed_block_height+1, proposed_block_height+CONFIRMATION_BLOCK_DELTA+1)]
         block_hashes = await asyncio.gather(*[
             fetch_block_hash(height, rpc_url)
             for height in height_list

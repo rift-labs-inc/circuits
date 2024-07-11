@@ -5,7 +5,6 @@ import asyncio
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils.proxy_wallet import get_secondary_testnet_wallets
 from utils.rift_lib import (
     build_giga_circuit_proof_and_input,
     LiquidityProvider,
@@ -69,8 +68,41 @@ async def test_historical_simple_payment_testnet():
         block_height_delta=rift_bitcoin_data.block_height_delta
     )
 
+async def test_historical_simple_payment_mainnet():
+    print("Testing real triple payment on mainnet...")
+    order_nonce = hashlib.sha256(b"rift").hexdigest()
+    lps =  [
+        LiquidityProvider(amount=420, btc_exchange_rate=1, locking_script_hex='001463dff5f8da08ca226ba01f59722c62ad9b9b3eaa'),
+        LiquidityProvider(amount=420, btc_exchange_rate=1, locking_script_hex='0014aa86191235be8883693452cf30daf854035b085b'),
+        LiquidityProvider(amount=420, btc_exchange_rate=1, locking_script_hex='00146ab8f6c80b8a7dc1b90f7deb80e9b59ae16b7a5a')
+    ]
+    proposed_block_height = 851722
+    safe_block_height = 851715
+    rift_bitcoin_data = await get_rift_btc_data(
+        proposed_block_height=proposed_block_height,
+        safe_block_height=safe_block_height,
+        txid="5f5ab7bec205117d1bcfc9f985a646eb94eb9bbc0c73968974158cd5a3b6b81e",
+        mainnet=True
+    )
+    await build_giga_circuit_proof_and_input(
+        txn_data_no_segwit_hex=rift_bitcoin_data.txn_data_no_segwit_hex,
+        lp_reservations=lps,
+        proposed_block_header=rift_bitcoin_data.proposed_block_header,
+        safe_block_header=rift_bitcoin_data.safe_block_header,
+        retarget_block_header=rift_bitcoin_data.retarget_block_header,
+        inner_block_headers=rift_bitcoin_data.inner_block_headers,
+        confirmation_block_headers=rift_bitcoin_data.confirmation_block_headers,
+        order_nonce_hex=order_nonce,
+        expected_payout=sum(lp.amount for lp in lps),
+        safe_block_height=safe_block_height,
+        block_height_delta=rift_bitcoin_data.block_height_delta
+    )
+        
+    
+
 def main():
-    asyncio.run(test_historical_simple_payment_testnet())
+    #asyncio.run(test_historical_simple_payment_testnet())
+    asyncio.run(test_historical_simple_payment_mainnet())
 
 
 if __name__ == "__main__":
