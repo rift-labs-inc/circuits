@@ -1,10 +1,8 @@
-// TODO: handle retarget blocks properly 
 use dep::std;
 use dep::rift_lib::byte_lib;
 
 global TARGET_PERIOD: u32 = 2016; // blocks between difficulty retargets
 global TARGET_TIMESPAN: u32 = 1209600; // goal time of 10 minutes per block * 2016 blocks
-global INNER_BLOCK_COUNT: u64 = 24; // if this is zero, then there's one safe block
 global CONFIRMATION_BLOCK_DELTA: u64 = 5;
 
 struct Block {
@@ -17,81 +15,7 @@ struct Block {
     nonce: Field,
 }
 
-#[recursive]
-fn main(
-    confirmation_block_hash_encoded: pub [Field; 2],
-    proposed_block_hash_encoded: pub [Field; 2],
-    safe_block_hash_encoded: pub [Field; 2],
-    retarget_block_hash_encoded: pub [Field; 2],
-    safe_block_height: pub u64,
-    block_height_delta: pub u64,
-	// this is used to verify the merkle root used by giga is actually in the block being proven
-	proposed_merkle_root_encoded: pub [Field; 2],
-    proposed_block: Block,
-    safe_block: Block,
-    retarget_block: Block,
-    inner_block_hashes_encoded: [[Field; 2]; INNER_BLOCK_COUNT],
-    inner_blocks: [Block; INNER_BLOCK_COUNT],
-    confirmation_block_hashes_encoded: [[Field; 2]; CONFIRMATION_BLOCK_DELTA],
-    confirmation_blocks: [Block; CONFIRMATION_BLOCK_DELTA]
-) {
-    //------------------ MAIN CIRCUIT ------------------ //
-    // [0] verify the proposed merkle root is in the block being proven
-	  assert(byte_lib::decode_field_encoded_hash(proposed_merkle_root_encoded) == proposed_block.merkle_root);
-
-    assert(block_height_delta as u64 <= INNER_BLOCK_COUNT); // verify proposed block height delta
-    let proposed_block_hash = byte_lib::decode_field_encoded_hash(proposed_block_hash_encoded);
-    let safe_block_hash = byte_lib::decode_field_encoded_hash(safe_block_hash_encoded);
-    assert(safe_block_hash == build_block_hash(safe_block)); // verify safe block hash
-    let retarget_block_hash = byte_lib::decode_field_encoded_hash(retarget_block_hash_encoded);
-    assert(retarget_block_hash == build_block_hash(retarget_block));
-
-    let mut last_block_height = safe_block_height as u64;
-    let mut last_block = safe_block;
-    let mut last_block_hash = safe_block_hash;
-
-    for i in 0..INNER_BLOCK_COUNT {
-        if i < block_height_delta - 1 {
-            let inner_proposed_block_hash = byte_lib::decode_field_encoded_hash(inner_block_hashes_encoded[i]);
-            verify_block(
-                inner_proposed_block_hash,
-                last_block_hash,
-                inner_blocks[i],
-                retarget_block,
-                last_block_height
-            );
-            last_block = inner_blocks[i];
-            last_block_height += 1;
-            last_block_hash = inner_proposed_block_hash;
-        }
-    }
-
-    verify_block(
-        proposed_block_hash,
-        last_block_hash,
-        proposed_block,
-        retarget_block,
-        last_block_height
-    );
-
-    last_block_hash = proposed_block_hash;
-	last_block_height += 1;
-    for i in 0..CONFIRMATION_BLOCK_DELTA {
-        let confirmation_block_hash = byte_lib::decode_field_encoded_hash(confirmation_block_hashes_encoded[i]);
-        verify_block(
-            confirmation_block_hash,
-            last_block_hash,
-            confirmation_blocks[i],
-            retarget_block,
-            last_block_height
-        );
-        last_block_height += 1;
-        last_block_hash = confirmation_block_hash;
-    }
-    assert(byte_lib::decode_field_encoded_hash(confirmation_block_hash_encoded) == last_block_hash);
-}
-
-fn verify_block(
+pub fn verify_block(
     proposed_block_hash: [u8; 32],
     previous_block_hash: [u8; 32],
     proposed_block: Block,
@@ -112,10 +36,10 @@ fn verify_block(
     assert(proposed_block.prev_block_hash == previous_block_hash);
 
     // [4] verify PoW (double sha256(block_hash) <= target)
-    verify_PoW(proposed_block_hash, proposed_block, proposed_target);
+    verify_pow(proposed_block_hash, proposed_block, proposed_target);
 }
 
-fn bits_to_target(bits: Field) -> [u8; 32] {
+pub fn bits_to_target(bits: Field) -> [u8; 32] {
     // [0] convert the given bits to target
     let exponent = (bits as u32) >> 24; // 1 byte
     assert(exponent < 0x20); // needs to be less than 32
@@ -156,7 +80,7 @@ fn bits_to_target(bits: Field) -> [u8; 32] {
     target
 }
 
-fn calculate_real_target(retarget_block: Block, proposed_block: Block) -> [u8; 32] {
+pub fn calculate_real_target(retarget_block: Block, proposed_block: Block) -> [u8; 32] {
     // [0] calculate the actual time between blocks
     assert(proposed_block.timestamp as u64 >= retarget_block.timestamp as u64);
     let mut actual_time = proposed_block.timestamp as u64 - retarget_block.timestamp as u64;
@@ -190,7 +114,7 @@ fn calculate_real_target(retarget_block: Block, proposed_block: Block) -> [u8; 3
     }
 }
 
-fn build_block_hash(block: Block) -> [u8; 32] {
+pub fn build_block_hash(block: Block) -> [u8; 32] {
     // [0] build serialized header from proposed block data
     let mut serialized_header_array: [u8; 80] = [0; 80];
     let mut i = 0;
@@ -249,7 +173,7 @@ fn build_block_hash(block: Block) -> [u8; 32] {
     block_hash
 }
 
-fn verify_PoW(proposed_block_hash: [u8; 32], proposed_block: Block, proposed_target: [u8; 32]) {
+pub fn verify_pow(proposed_block_hash: [u8; 32], proposed_block: Block, proposed_target: [u8; 32]) {
     println("\nVerifying PoW...");
     let calculated_block_hash = build_block_hash(proposed_block);
 
@@ -261,7 +185,7 @@ fn verify_PoW(proposed_block_hash: [u8; 32], proposed_block: Block, proposed_tar
     println("\nPoW verified!\n");
 }
 
-fn larger_byte_array(a: [u8; 32], b: [u8; 32]) -> u32 {
+pub fn larger_byte_array(a: [u8; 32], b: [u8; 32]) -> u32 {
     // returns larger byte array (1: a > b, 2: a < b, 0: a == b)
     let mut result = 0;
     for i in 0..32 {
@@ -278,7 +202,6 @@ fn larger_byte_array(a: [u8; 32], b: [u8; 32]) -> u32 {
     result // a == b
 }
 
-fn is_block_hash_larger_than_target(proposed_block_hash: [u8; 32], target: [u8; 32]) -> bool {
+pub fn is_block_hash_larger_than_target(proposed_block_hash: [u8; 32], target: [u8; 32]) -> bool {
     1 != larger_byte_array(proposed_block_hash, target)
 }
-
