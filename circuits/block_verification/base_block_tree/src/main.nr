@@ -1,31 +1,6 @@
 use dep::std;
-
-global pair_block_verification_circuit_key_hash: Field = 0x14caa4f3a09635ca8407ee1642774588b3c70e0d689519b7683d2e20521d371f;
-
-fn build_pair_public_input(
-    block_hash_1:  [u8; 32],
-    block_hash_2: [u8; 32],
-    last_retarget_block_hash: [u8; 32],
-    block_height_1: u64,
-    last_retarget_block_height: u64,
-    is_buffer: bool
-)-> [Field; 100] {
-  let mut block_height_2 = block_height_1;
-  if !is_buffer {
-    block_height_2 += 1;
-  } 
-  let mut public_input = [0 as Field; 100];
-  for i in 0..32 {
-    public_input[i] = block_hash_1[i] as Field;
-    public_input[i+32] = block_hash_2[i] as Field;
-    public_input[i+64] = last_retarget_block_hash[i] as Field;
-  }
-  public_input[96] = block_height_1 as Field;
-  public_input[97] = block_height_2 as Field;
-  public_input[98] = last_retarget_block_height as Field;
-  public_input[99] = is_buffer as Field;
-  public_input
-}
+use dep::block_lib::vkey_hashes::{PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH};
+use dep::block_lib::{build_pair_public_input};
 
 #[recursive]
 fn main(
@@ -45,14 +20,16 @@ fn main(
   ) {
 
   if !first_is_buffer & !last_is_buffer {
-    assert(last_block_height == first_block_height + 2, "Ensure Balanced Tree Delta");
+    assert(last_block_height == first_block_height + 2, "Ensure Balanced Tree");
+	
   } else if first_is_buffer & last_is_buffer {
-    assert(last_block_height == first_block_height, "Ensure Buffer Tree Delta");
+    assert(last_block_height == first_block_height, "Ensure Buffer Tree");
     assert(first_block_hash == last_block_hash);
   } else { // either first or last is buffer
-    assert(last_block_height == first_block_height + 1, "Ensure Impalanced Tree Delta");
+    assert(last_block_height == first_block_height + 1, "Ensure Impalanced Tree");
   }
   
+  // Left Pair
   std::verify_proof(
     first_pair_verification_key.as_slice(),
     first_pair_proof.as_slice(),
@@ -64,10 +41,11 @@ fn main(
       last_retarget_block_height,
       first_is_buffer
     ).as_slice(),
-    pair_block_verification_circuit_key_hash
+    PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH
   );
 
 
+  // Right Pair
   std::verify_proof(
     last_pair_verification_key.as_slice(),
     last_pair_proof.as_slice(),
@@ -79,7 +57,7 @@ fn main(
       last_retarget_block_height,
       last_is_buffer
     ).as_slice(),
-    pair_block_verification_circuit_key_hash
+    PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH
   );
 }
 

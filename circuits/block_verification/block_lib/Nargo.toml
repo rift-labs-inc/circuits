@@ -1,6 +1,6 @@
 [package]
-name = "rollup_block_tree"
-type = "bin"
+name = "block_lib"
+type = "lib"
 authors = [""]
 compiler_version = ">=0.30.0"
 

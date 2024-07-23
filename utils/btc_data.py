@@ -64,8 +64,12 @@ async def fetch_initial_block_input_mainnet_public(proposed_block_height: int, s
         f"Fetching block data from height {proposed_block_height+1} to {proposed_block_height + 7}...")
     confirmation_blocks = await asyncio.gather(*[
         fetch_block_data_mainnet_public(height) for height in range(proposed_block_height+1, proposed_block_height+7)])
-    if not inner_blocks or not confirmation_blocks:
-        raise Exception("No inner blocks to process.")
+    if not inner_blocks:
+        inner_blocks = []
+
+    if not confirmation_blocks:
+        confirmation_blocks = []
+
 
     retarget_block = await fetch_block_data_mainnet_public(retarget_height)
     safe_block = await fetch_block_data_mainnet_public(safe_block_height)

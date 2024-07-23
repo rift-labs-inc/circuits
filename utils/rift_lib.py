@@ -3,6 +3,7 @@ import hashlib
 import os
 import math
 import json
+from typing import Union
 
 from pydantic import BaseModel
 from eth_abi.abi import encode as eth_abi_encode
@@ -62,6 +63,17 @@ class Block(BaseModel):
     nonce: int
     txns: list[str]
 
+
+NULL_BLOCK = Block(
+    height=0,
+    version=0,
+    prev_block_hash='0' * 64,
+    merkle_root='0' * 64,
+    timestamp=0,
+    bits=0,
+    nonce=0,
+    txns=[]
+)
 
 def compute_block_hash(block: Block) -> str:
     """
@@ -124,16 +136,6 @@ async def create_block_verification_prover_toml_witness(
     compilation_build_folder: str
 ):
     print("Generating prover toml...")
-    NULL_BLOCK = Block(
-        height=0,
-        version=0,
-        prev_block_hash='0' * 64,
-        merkle_root='0' * 64,
-        timestamp=0,
-        bits=0,
-        nonce=0,
-        txns=[]
-    )
 
     if len(inner_block_hashes_hex) > MAX_INNER_BLOCKS:
         raise ValueError(f"Too many inner blocks. Max is {MAX_INNER_BLOCKS}")
@@ -658,60 +660,6 @@ async def build_recursive_lp_hash_proof_and_input(
     )
 
 
-async def build_recursive_block_proof_and_input(
-    proposed_block: Block,
-    safe_block: Block,
-    retarget_block: Block,
-    inner_blocks: list[Block],
-    confirmation_blocks: list[Block],
-    circuit_path: str = "circuits/block_verification",
-    verify: bool = False
-):
-    num_inner_blocks = proposed_block.height - safe_block.height
-    print("Compiling block verification circuit...")
-    await compile_project(circuit_path)
-    # [2] create prover toml and witness
-    print("Creating prover toml and witness...")
-    await create_block_verification_prover_toml_witness(
-        proposed_merkle_root_hex=proposed_block.merkle_root,
-        confirmation_block_hash_hex=compute_block_hash(
-            confirmation_blocks[-1]),
-        proposed_block_hash_hex=compute_block_hash(proposed_block),
-        safe_block_hash_hex=compute_block_hash(safe_block),
-        retarget_block_hash_hex=compute_block_hash(retarget_block),
-        safe_block_height=safe_block.height,
-        block_height_delta=proposed_block.height - safe_block.height,
-        proposed_block=proposed_block,
-        safe_block=safe_block,
-        retarget_block=retarget_block,
-        inner_block_hashes_hex=[compute_block_hash(
-            block) for block in inner_blocks],
-        inner_blocks=inner_blocks,
-        confirmation_block_hashes_hex=[compute_block_hash(
-            block) for block in confirmation_blocks],
-        confirmation_blocks=confirmation_blocks,
-        compilation_build_folder=circuit_path
-    )
-    # [3] build verification key, create proof, and verify proof
-    vk = "./target/vk"
-    print("Building verification key...")
-    await build_raw_verification_key(vk, circuit_path, BB)
-    print("Creating proof...")
-    public_inputs_as_fields, proof_as_fields = await create_proof(pub_inputs=12, vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
-    if verify:
-        print("Verifying proof...")
-        await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
-    print(f"Block proof with {num_inner_blocks + 1 + 6} total blocks created!")
-    encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
-    vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
-    return RecursiveProofArtifact(
-        verification_key=vkey_as_fields,
-        proof=proof_as_fields,
-        public_inputs=public_inputs_as_fields,
-        key_hash=vkey_hash
-    )
-
-
 async def build_recursive_payment_proof_and_input(
         lps: list[LiquidityProvider],
         txn_data_no_segwit_hex: str,
@@ -751,6 +699,131 @@ async def build_recursive_payment_proof_and_input(
         key_hash=vkey_hash
     )
 
+
+
+
+"""
+#[recursive]
+fn main(
+    block_hash_1: pub [u8; 32],
+    block_hash_2: pub [u8; 32],
+    last_retarget_block_hash: pub [u8; 32],
+    block_height_1: pub u64,
+    block_height_2: pub u64,
+    last_retarget_block_height: pub u64,
+    is_buffer: pub bool,
+    block_header_1: Block,
+    block_header_2: Block,
+    last_retarget_block: Block,
+    next_retarget_hash: [u8; 32],
+    next_retarget_header: Block,
+    next_retarget_verification_key: [Field; 114],
+    next_retarget_proof: [Field; 93]
+) {
+"""
+
+
+
+async def create_block_pair_verification_prover_toml(
+    block_1: Block,
+    block_2: Block,
+    last_retarget_block: Block,
+    next_retarget_block: Union[Block, None] = None,
+    next_retarget_verification_key: Union[list[str], None] = None,
+    next_retarget_proof: Union[list[str], None] = None,
+    compilation_build_folder: str = "circuits/block_verification/pair_block_verification"
+    ):
+    print("Generating prover toml...")
+    if next_retarget_block is None:
+        next_retarget_block = NULL_BLOCK
+        next_retarget_hash = "0x" + ("00" * 32)
+    else:
+        next_retarget_hash = compute_block_hash(next_retarget_block)
+    if next_retarget_verification_key is None:
+        next_retarget_verification_key = ["0x0"] * 114
+    if next_retarget_proof is None:
+        next_retarget_proof = ["0x0"] * 93
+
+    prover_toml_string = "\n".join(
+        [
+            "block_hash_1=" + json.dumps(hex_string_to_byte_array(compute_block_hash(block_1))),
+            "block_hash_2=" + json.dumps(hex_string_to_byte_array(compute_block_hash(block_2))),
+            "last_retarget_block_hash=" + json.dumps(hex_string_to_byte_array(compute_block_hash(last_retarget_block))),
+            "block_height_1=" + str(block_1.height),
+            "block_height_2=" + str(block_2.height),
+            "last_retarget_block_height=" + str(last_retarget_block.height),
+            "is_buffer=" + str(block_1.height == block_2.height).lower(),
+            "",
+            "next_retarget_hash=" + json.dumps(hex_string_to_byte_array(next_retarget_hash)),
+            "",
+            "next_retarget_verification_key=" + json.dumps(next_retarget_verification_key),
+            "",
+            "next_retarget_proof=" + json.dumps(next_retarget_proof),
+            "",
+            "[block_header_1]",
+            *await block_toml_encoder(block_1),
+            "",
+            "[block_header_2]",
+            *await block_toml_encoder(block_2),
+            "",
+            "[last_retarget_block]",
+            *await block_toml_encoder(last_retarget_block),
+            "",
+            "[next_retarget_header]",
+            *await block_toml_encoder(next_retarget_block),
+            "",
+        ]
+    )
+
+    print("Creating witness...")
+    await create_witness(prover_toml_string, compilation_build_folder)
+
+
+async def build_block_pair_buffer_proof_input(
+    block: Block
+):
+    pass
+
+
+async def build_block_pair_proof_input(
+    block_1: Block,
+    block_2: Block,
+    last_retarget_block: Block,
+    next_retarget_block: Union[Block, None] = None,
+    next_retarget_verification_key: Union[list[str], None] = None,
+    next_retarget_proof: Union[list[str], None] = None,
+    circuit_path: str = "circuits/block_verification/pair_block_verification",
+    ):
+    
+    print("Compiling block pair verification circuit...")
+    await compile_project(circuit_path)
+    # [1] create prover toml and witnesses
+    print("Creating prover toml and witness...")
+    await create_block_pair_verification_prover_toml(
+        block_1=block_1,
+        block_2=block_2,
+        last_retarget_block=last_retarget_block,
+        next_retarget_block=next_retarget_block,
+        next_retarget_verification_key=next_retarget_verification_key,
+        next_retarget_proof=next_retarget_proof,
+        compilation_build_folder=circuit_path
+    )
+    # [3] build verification key, create proof, and verify proof
+    vk = "./target/vk"
+    print("Building verification key...")
+    await build_raw_verification_key(vk, circuit_path, BB)
+    print("Creating proof...")
+    public_inputs_as_fields, proof_as_fields = await create_proof(pub_inputs=100, vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    print("Block pair proof gen successful!")
+    encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
+    vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
+    return RecursiveProofArtifact(
+        verification_key=vkey_as_fields,
+        proof=proof_as_fields,
+        public_inputs=public_inputs_as_fields,
+        key_hash=vkey_hash
+    )
+
 async def build_giga_circuit_proof_and_input(
     txn_data_no_segwit_hex: str,
     lp_reservations: list[LiquidityProvider],
@@ -776,13 +849,6 @@ async def build_giga_circuit_proof_and_input(
         lps=lp_reservations
     )
     print()
-    block_recursive_artifact = await build_recursive_block_proof_and_input(
-        proposed_block=proposed_block_header,
-        safe_block=safe_block_header,
-        retarget_block=retarget_block_header,
-        inner_blocks=inner_block_headers,
-        confirmation_blocks=confirmation_block_headers
-    )
     print()
     payment_recursive_artifact = await build_recursive_payment_proof_and_input(
         lps=lp_reservations,

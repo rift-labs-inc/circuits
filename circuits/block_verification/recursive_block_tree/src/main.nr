@@ -1,7 +1,8 @@
+// NOTE: This is a just a reference utilized to generate the actual circuits in generated_block_tree
 use dep::std;
 use dep::block_lib::{build_tree_circuit_public_input};
-use dep::block_lib::vkey_hashes::{BLOCK_TREE_CIRCUIT_KEY_HASH};
 
+global BLOCK_TREE_CIRCUIT_KEY_HASH: Field = 0x0; // [REPLACE] 
 
 #[recursive]
 fn main(

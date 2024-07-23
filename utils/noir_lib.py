@@ -77,9 +77,12 @@ async def initialize_noir_project_folder(
 
     return temp_dir
 
-async def compile_project(compilation_dir: str):
+async def compile_project(compilation_dir: str, return_binary = False):
     command = "nargo compile --only-acir"
     await run_command(command, compilation_dir, strict_failure=False)
+    if return_binary:
+        async with aiofiles.open(os.path.join(compilation_dir, "target/acir.gz"), "rb") as file:
+            return await file.read()
 
 async def create_witness(prover_toml_string: str, compilation_dir: str):
     async with aiofiles.open(

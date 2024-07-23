@@ -26,8 +26,11 @@ pub fn verify_block(
     // TODO: Handle target properly regarding retarget, also potentially add a testnet flag
     // so that tests don't fail due to nonstandard difficulty calculation
     let proposed_target = bits_to_target(proposed_block.bits);
-    let real_target = calculate_real_target(retarget_block, proposed_block);
-    assert(proposed_target == real_target);
+    assert(retarget_block.bits == proposed_block.bits);
+
+    // TODO: Is this necessary post retarget update?
+    //let real_target = calculate_real_target(retarget_block, proposed_block);
+    //assert(proposed_target == real_target);
 
     // [2] verify the proposed block height is one greater than previous_block_height
     assert(proposed_block.height as u64 == previous_block_height + 1);
@@ -41,21 +44,20 @@ pub fn verify_block(
 
 pub fn bits_to_target(bits: Field) -> [u8; 32] {
     // [0] convert the given bits to target
-    let exponent = (bits as u32) >> 24; // 1 byte
-    assert(exponent < 0x20); // needs to be less than 32
-    let coefficient = (bits as u32) & 0xffffff; // 3 bytes
 
     // [1] convert new target to byte array
     let mut target_array: [u8; 32] = [0; 32];
-    let target_bytes = (coefficient as Field).to_be_bytes(3);
+    let byte_bits: [u8; 4] = (bits as Field).to_be_bytes(4).as_array();
+    let exponent = byte_bits[0] as u64;
+    let coefficient_bytes: [u8; 3] = [byte_bits[1], byte_bits[2], byte_bits[3]];
 
     for i in 0..32 {
         if i == 32 - exponent {
-            target_array[i] = target_bytes[0];
+            target_array[i] = coefficient_bytes[0];
         } else if i == 32 - exponent + 1 {
-            target_array[i] = target_bytes[1];
+            target_array[i] = coefficient_bytes[1];
         } else if i == 32 - exponent + 2 {
-            target_array[i] = target_bytes[2];
+            target_array[i] = coefficient_bytes[2];
         } else {
             target_array[i] = 0x00;
         }
@@ -80,6 +82,7 @@ pub fn bits_to_target(bits: Field) -> [u8; 32] {
     target
 }
 
+/*
 pub fn calculate_real_target(retarget_block: Block, proposed_block: Block) -> [u8; 32] {
     // [0] calculate the actual time between blocks
     assert(proposed_block.timestamp as u64 >= retarget_block.timestamp as u64);
@@ -113,6 +116,7 @@ pub fn calculate_real_target(retarget_block: Block, proposed_block: Block) -> [u
         old_target
     }
 }
+*/
 
 pub fn build_block_hash(block: Block) -> [u8; 32] {
     // [0] build serialized header from proposed block data
@@ -205,3 +209,5 @@ pub fn larger_byte_array(a: [u8; 32], b: [u8; 32]) -> u32 {
 pub fn is_block_hash_larger_than_target(proposed_block_hash: [u8; 32], target: [u8; 32]) -> bool {
     1 != larger_byte_array(proposed_block_hash, target)
 }
+
+

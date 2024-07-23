@@ -48,14 +48,6 @@ async def get_payment_verification_vk_hash():
     vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
     return vk_data[0]
 
-async def get_pair_circuit_verification_vk_hash():
-    compilation_dir = "circuits/pair_block_verification"
-    vk = tempfile.NamedTemporaryFile()
-    await compile_project(compilation_dir)
-    await build_raw_verification_key(vk.name, compilation_dir, BB)
-    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
-    return vk_data[0]
-
 
 async def main():
     block_hash = await get_block_vk_hash()
@@ -68,12 +60,6 @@ async def main():
     ))
 
 
-async def print_pair_circuit_verification_vk_hash():
-    pair_circuit_hash = await get_pair_circuit_verification_vk_hash()
-    print(dedent(f"""    global pair_block_verification_circuit_key_hash: Field = {pair_circuit_hash};"""
-    ))
-
 
 if __name__ == "__main__":
-    asyncio.run(print_pair_circuit_verification_vk_hash())
-    #asyncio.run(main())
+    asyncio.run(main())
