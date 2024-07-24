@@ -53,29 +53,17 @@ async def fetch_block_data_mainnet_public(height: int):
 
 
 # DEPRECATE
-async def fetch_initial_block_input_mainnet_public(proposed_block_height: int, safe_block_height: int, retarget_height: int):
-    num_inner_blocks = proposed_block_height - safe_block_height
+async def fetch_initial_block_input_mainnet_public(proposed_block_height: int, safe_block_height: int):
+    retarget_height = proposed_block_height - (proposed_block_height % 2016)
     print(
-        f"Fetching block data from height {safe_block_height + 1} to {safe_block_height + num_inner_blocks}...")
-    inner_blocks = await asyncio.gather(*[
-        fetch_block_data_mainnet_public(height) for height in range(safe_block_height + 1, safe_block_height + num_inner_blocks)])
-
-    print(
-        f"Fetching block data from height {proposed_block_height+1} to {proposed_block_height + 7}...")
-    confirmation_blocks = await asyncio.gather(*[
-        fetch_block_data_mainnet_public(height) for height in range(proposed_block_height+1, proposed_block_height+7)])
-    if not inner_blocks:
-        inner_blocks = []
-
-    if not confirmation_blocks:
-        confirmation_blocks = []
-
+        f"Fetching {proposed_block_height - safe_block_height + 1} block(s) from height {safe_block_height} to {proposed_block_height}...")
+    blocks = await asyncio.gather(*[
+        fetch_block_data_mainnet_public(height) for height in range(safe_block_height, proposed_block_height+1)
+    ])
 
     retarget_block = await fetch_block_data_mainnet_public(retarget_height)
-    safe_block = await fetch_block_data_mainnet_public(safe_block_height)
-    proposed_block = await fetch_block_data_mainnet_public(proposed_block_height)
 
-    return proposed_block, safe_block, retarget_block, inner_blocks, confirmation_blocks
+    return blocks, retarget_block
 
 
 async def fetch_block_data(block_hash: str, height: int, rpc_url: str):
