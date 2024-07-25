@@ -10,8 +10,8 @@ fn main(
   last_block_hash: pub [u8; 32],
   first_block_height: pub u64,
   last_block_height: pub u64,
-  first_block_is_buffer: pub bool,
-  last_block_is_buffer: pub bool,
+  first_is_buffer: pub bool,
+  last_is_buffer: pub bool,
   last_retarget_block_hash: pub [u8; 32],
   last_retarget_block_height: pub u64,
   link_block_hash: [u8; 32],
@@ -32,7 +32,7 @@ fn main(
       link_block_hash,
       first_block_height,
       link_block_height,
-      first_block_is_buffer,
+      first_is_buffer,
       link_block_is_buffer,
       last_retarget_block_hash,
       last_retarget_block_height
@@ -51,7 +51,7 @@ fn main(
       link_block_height,
       last_block_height,
       link_block_is_buffer,
-      last_block_is_buffer,
+      last_is_buffer,
       last_retarget_block_hash,
       last_retarget_block_height
     ).as_slice(),

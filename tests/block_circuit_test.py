@@ -73,7 +73,8 @@ async def test_single_pair():
 async def create_simple_1_level_tree():
     print("Create Simple 1 Level Tree...")
     proposed_height = 848534
-    safe_delta = 10
+    safe_delta = 3
+    print(f"{safe_delta} New Blocks")
     blocks, retarget_block = await fetch_initial_block_input_mainnet_public(
         proposed_block_height=proposed_height,
         safe_block_height=proposed_height - safe_delta,
@@ -83,9 +84,6 @@ async def create_simple_1_level_tree():
         blocks=blocks,
         last_retarget_block=retarget_block
     ))
-
-
-
 
 
 def main():
