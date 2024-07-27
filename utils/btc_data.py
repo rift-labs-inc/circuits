@@ -15,8 +15,8 @@ import httpx
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils.rift_lib import CONFIRMATION_BLOCK_DELTA, Block
-from utils.noir_lib import normalize_hex_str
+from .rift_lib import CONFIRMATION_BLOCK_DELTA, Block
+from .noir_lib import normalize_hex_str
 
 
 

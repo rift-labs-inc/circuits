@@ -9,7 +9,7 @@ from eth_abi.abi import encode as eth_abi_encode
 import aiofiles
 
 
-from utils.noir_lib import (
+from .noir_lib import (
     create_solidity_proof,
     initialize_noir_project_folder,
     compile_project,
