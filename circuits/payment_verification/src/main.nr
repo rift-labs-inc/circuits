@@ -211,7 +211,7 @@ pub fn assert_payment_utxos_exist(
 				|i|  i < sig_counter as u64
 			);
 
-			assert(value == reserved_liquidity_providers[i].amount_reserved);
+			assert(value == (reserved_liquidity_providers[i].amount_reserved/reserved_liquidity_providers[i].btc_exchange_rate));
 			assert(lockingScript == reserved_liquidity_providers[i].script_pub_key);
 			calculated_payout += U128::from_integer(value) * U128::from_integer(reserved_liquidity_providers[i].btc_exchange_rate);
 

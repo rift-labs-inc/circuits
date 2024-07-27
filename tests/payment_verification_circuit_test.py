@@ -9,6 +9,7 @@ from utils.rift_lib import (
     build_recursive_payment_proof_and_input,
     LiquidityProvider
 )
+from utils.proxy_wallet import sats_to_wei, wei_to_satoshi
 
 
 from bitcoin import SelectParams
@@ -32,7 +33,7 @@ def create_simple_fake_payment() -> tuple[CMutableTransaction, str, str, int, st
            
     txid = "1010000000000000000000000000000000000000000000000000000000dead01"
     vout = 0
-    amount = 1000000000 # 10 BTC in satoshis
+    amount = int(0.1 * 10**8) # 10 BTC in satoshis
 
     # Calculate an amount for the upcoming new UTXO. Set a high fee to bypass
     # bitcoind minfee setting.
@@ -90,9 +91,10 @@ def create_simple_fake_payment() -> tuple[CMutableTransaction, str, str, int, st
 async def test_single_theo_payment():
     print("Testing Single Theo Payment...")
     txn, circuit_txn_data, txn_hash, value, order_nonce = create_simple_fake_payment()
+    btc_exchange_rate = 205000000000
     lp = LiquidityProvider(
-        amount=value,
-        btc_exchange_rate=2,
+        amount=sats_to_wei(value, btc_exchange_rate), # ether amount
+        btc_exchange_rate=btc_exchange_rate,
         locking_script_hex="0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7"
     )
 
@@ -101,7 +103,7 @@ async def test_single_theo_payment():
         lps=[lp],
         txn_data_no_segwit_hex=circuit_txn_data,
         order_nonce_hex=order_nonce,
-        expected_payout=2*value,
+        expected_payout=lp.amount,
     )
 
 def main():

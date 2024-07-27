@@ -143,20 +143,20 @@ async def build_rift_payment_transaction(
     print("UTXO Status:", fetch_utxo)
     """
 
-    total_lp_sum = sum(lp.amount for lp in liquidity_providers)
+    total_lp_sum_btc = sum(wei_to_satoshi(lp.amount, lp.btc_exchange_rate) for lp in liquidity_providers)
     vin_sats = int(float(transaction["vout"][in_txvout]["value"]) * COIN)
+    print("Total LP Sum BTC", total_lp_sum_btc)
     print("Vin sats", vin_sats)
-    assert total_lp_sum <= vin_sats
 
     lp_outputs = [
         CTxOut(
-            lp.amount, CScript(bytes.fromhex(normalize_hex_str(lp.locking_script_hex)))
+            wei_to_satoshi(lp.amount, lp.btc_exchange_rate), CScript(bytes.fromhex(normalize_hex_str(lp.locking_script_hex)))
         )
         for i, lp in enumerate(liquidity_providers)
     ]
-    assert (vin_sats - total_lp_sum - fee_sats) >= 0
+    assert (vin_sats - total_lp_sum_btc - fee_sats) >= 0
     change_output = CTxOut(
-        vin_sats - total_lp_sum - fee_sats, CScript(bytes.fromhex(wallet.unlock_script))
+        vin_sats - total_lp_sum_btc - fee_sats, CScript(bytes.fromhex(wallet.unlock_script))
     )
 
     OP_RETURN = bytes.fromhex("6a")
@@ -234,24 +234,8 @@ if __name__ == "__main__":
     mainnet = True
     wallet = get_wallet(mainnet=mainnet)
 
-    order_nonce = "fd7bdcdb80db83a3a3bbef5df0035c5b07d3c481a889db4728a713025116f274"
-    lp_wallets = [
-        LiquidityProvider(
-            amount=100000000000000,
-            btc_exchange_rate=1000,
-            locking_script_hex="001463dff5f8da08ca226ba01f59722c62ad9b9b3eaa",
-        ),
-        LiquidityProvider(
-            amount=100000000000000,
-            btc_exchange_rate=1000,
-            locking_script_hex="0014aa86191235be8883693452cf30daf854035b085b",
-        ),
-        LiquidityProvider(
-            amount=100000000000000,
-            btc_exchange_rate=1000,
-            locking_script_hex="00146ab8f6c80b8a7dc1b90f7deb80e9b59ae16b7a5a",
-        ),
-    ]
+    order_nonce = "e9dda4b8016dc1e3e5ec7a19be6b2cdaaa8b50eef550c6c7343724849bf772a4"
+    lp_wallets = [LiquidityProvider(amount=100000000000000, btc_exchange_rate=205000000000, locking_script_hex='001463dff5f8da08ca226ba01f59722c62ad9b9b3eaa'), LiquidityProvider(amount=100000000000000, btc_exchange_rate=205000000000, locking_script_hex='0014aa86191235be8883693452cf30daf854035b085b'), LiquidityProvider(amount=100000000000000, btc_exchange_rate=205000000000, locking_script_hex='00146ab8f6c80b8a7dc1b90f7deb80e9b59ae16b7a5a')]
     unbroadcast_txn = asyncio.run(
         build_rift_payment_transaction(
             order_nonce_hex=order_nonce,
@@ -262,7 +246,7 @@ if __name__ == "__main__":
             wallet=wallet,
             rpc_url=get_rpc(mainnet=mainnet),
             mainnet=mainnet,
-            fee_sats=300,
+            fee_sats=1500,
         )
     )
     print("Txn Data:", json.dumps(unbroadcast_txn, indent=2))
