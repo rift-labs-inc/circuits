@@ -38,8 +38,8 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils.rift_lib import LiquidityProvider, normalize_hex_str
-from utils.btc_data import (
+from .rift_lib import LiquidityProvider, normalize_hex_str
+from .btc_data import (
     broadcast_transaction,
     fetch_transaction_data_in_block,
     fetch_utxo_status,
