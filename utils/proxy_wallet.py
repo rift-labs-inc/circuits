@@ -36,8 +36,7 @@ from bitcoin.core.script import (
 from bitcoin.wallet import CBitcoinSecret, P2WPKHBitcoinAddress
 from dotenv import load_dotenv
 
-if __name__ == "__main__":
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.rift_lib import LiquidityProvider, normalize_hex_str
 from utils.btc_data import (
@@ -234,6 +233,7 @@ async def build_rift_payment_transaction(
 if __name__ == "__main__":
     mainnet = True
     wallet = get_wallet(mainnet=mainnet)
+
     order_nonce = "fd7bdcdb80db83a3a3bbef5df0035c5b07d3c481a889db4728a713025116f274"
     lp_wallets = [
         LiquidityProvider(
