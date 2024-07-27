@@ -7,7 +7,6 @@ import sys
 
 from pydantic import BaseModel
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from bitcoin import SelectParams
 from bitcoin.core import (
@@ -36,6 +35,9 @@ from bitcoin.core.script import (
 )
 from bitcoin.wallet import CBitcoinSecret, P2WPKHBitcoinAddress
 from dotenv import load_dotenv
+
+if __name__ == "__main__":
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from utils.rift_lib import LiquidityProvider, normalize_hex_str
 from utils.btc_data import (
