@@ -92,15 +92,16 @@ async def test_single_theo_payment():
     txn, circuit_txn_data, txn_hash, value, order_nonce = create_simple_fake_payment()
     lp = LiquidityProvider(
         amount=value,
-        btc_exchange_rate=1,
+        btc_exchange_rate=2,
         locking_script_hex="0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7"
     )
+
 
     output = await build_recursive_payment_proof_and_input(
         lps=[lp],
         txn_data_no_segwit_hex=circuit_txn_data,
         order_nonce_hex=order_nonce,
-        expected_payout=value,
+        expected_payout=2*value,
     )
 
 def main():
