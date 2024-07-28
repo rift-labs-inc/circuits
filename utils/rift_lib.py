@@ -3,10 +3,16 @@ import hashlib
 import os
 import math
 import json
+import asyncio
+import functools
+import pickle
+import os
+from pathlib import Path
 
 from pydantic import BaseModel
 from eth_abi.abi import encode as eth_abi_encode
 import aiofiles
+
 
 
 from .noir_lib import (
@@ -25,11 +31,50 @@ from .noir_lib import (
     verify_proof
 )
 
+
 BB = "~/.nargo/backends/acvm-backend-barretenberg/backend_binary"
 MAX_ENCODED_CHUNKS = 226
 MAX_LIQUIDITY_PROVIDERS = 175
 MAX_INNER_BLOCKS = 24
 CONFIRMATION_BLOCK_DELTA = 5
+
+
+def persistent_async_cache(maxsize=128, cache_dir='./cache'):
+    def decorator(func):
+        # Create cache directory if it doesn't exist
+        Path(cache_dir).mkdir(parents=True, exist_ok=True)
+        
+        # Generate filename based on the function name
+        filename = os.path.join(cache_dir, f"{func.__name__}_cache.pkl")
+        
+        # Load cache from file if it exists
+        if os.path.exists(filename):
+            with open(filename, 'rb') as f:
+                cache = pickle.load(f)
+        else:
+            cache = {}
+
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            key = str(args) + str(kwargs)
+            
+            if key in cache:
+                return cache[key]
+            
+            task = asyncio.create_task(func(*args, **kwargs))
+            result = await task
+            
+            cache[key] = result
+            
+            # Save cache to file
+            with open(filename, 'wb') as f:
+                pickle.dump(cache, f)
+            
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 class SolidityProofArtifact(BaseModel):
@@ -213,6 +258,22 @@ async def create_block_verification_prover_toml_witness(
     print("Creating witness...")
     await create_witness(prover_toml_string, compilation_build_folder)
 
+def compute_lp_reservation_hash(lp_reservation_data: list[LiquidityProvider]) -> str:
+    vault_hash_hex = "00"*32
+    for i in range(len(lp_reservation_data)):
+        vault_hash_hex = hashlib.sha256(
+            eth_abi_encode(
+                ["uint192", "uint64", "bytes32", "bytes32"],
+                [
+                    lp_reservation_data[i].amount,
+                    lp_reservation_data[i].btc_exchange_rate,
+                    bytes.fromhex(normalize_hex_str(
+                        lp_reservation_data[i].locking_script_hex)),
+                    bytes.fromhex(vault_hash_hex)
+                ]
+            )
+        ).hexdigest()
+    return normalize_hex_str(vault_hash_hex)
 
 async def create_lp_hash_verification_prover_toml(
     lp_reservation_data: list[LiquidityProvider],
@@ -241,21 +302,7 @@ async def create_lp_hash_verification_prover_toml(
         ["0x0"] * 4
     )
 
-    vault_hash_hex = "00"*32
-    for i in range(len(lp_reservation_data)):
-        vault_hash_hex = hashlib.sha256(
-            eth_abi_encode(
-                ["uint192", "uint64", "bytes32", "bytes32"],
-                [
-                    lp_reservation_data[i].amount,
-                    lp_reservation_data[i].btc_exchange_rate,
-                    bytes.fromhex(normalize_hex_str(
-                        lp_reservation_data[i].locking_script_hex)),
-                    bytes.fromhex(vault_hash_hex)
-                ]
-            )
-        ).hexdigest()
-
+    vault_hash_hex = compute_lp_reservation_hash(lp_reservation_data)
     vault_hash_encoded = split_hex_into_31_byte_chunks(vault_hash_hex)
 
     prover_toml_string = "\n".join(
@@ -572,12 +619,14 @@ def get_chunk_file_name(chunk_id: int):
 
 
 
+@persistent_async_cache()
 async def build_recursive_sha256_proof_and_input(
     data_hex_str: str,
     circuit_path: str = "circuits/recursive_sha/src/main.nr",
     chunk_folder: str = "generated_sha_circuits/",
     max_bytes: int = 7000,
-    max_chunks: int = 226
+    max_chunks: int = 226,
+    verify: bool = False
 ) -> RecursiveSha256ProofArtifact:
     data = normalize_hex_str(data_hex_str)
 
@@ -606,7 +655,15 @@ async def build_recursive_sha256_proof_and_input(
         build_folder.name,
         BB,
     )
+
     print("SHA256 proof created!")
+
+    if verify:
+        print("Verifying proof...")
+        await verify_proof(vk_file, build_folder.name, BB)
+        print("SHA256 proof verified!")
+
+
     build_folder.cleanup()
     return RecursiveSha256ProofArtifact(
         verification_key=vkey_as_fields,
@@ -617,6 +674,7 @@ async def build_recursive_sha256_proof_and_input(
     )
 
 
+@persistent_async_cache()
 async def build_recursive_lp_hash_proof_and_input(
     lps: list[LiquidityProvider],
     circuit_path: str = "circuits/lp_hash_verification",
@@ -640,13 +698,14 @@ async def build_recursive_lp_hash_proof_and_input(
         compilation_dir=circuit_path,
         bb_binary=BB
     )
+    print("LP Hash proof gen successful!")
     encoded_vkey = await extract_vk_as_fields(vk_file, circuit_path, BB)
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
     if verify:
         print("Verifying proof...")
         await verify_proof(vk_path=vk_file, compilation_dir=circuit_path, bb_binary=BB)
+        print("LP Hash proof verified!")
 
-    print("LP Hash proof gen successful!")
 
     return RecursiveProofArtifact(
         verification_key=vkey_as_fields,
@@ -656,6 +715,7 @@ async def build_recursive_lp_hash_proof_and_input(
     )
 
 
+@persistent_async_cache()
 async def build_recursive_block_proof_and_input(
     proposed_block: Block,
     safe_block: Block,
@@ -699,6 +759,7 @@ async def build_recursive_block_proof_and_input(
     if verify:
         print("Verifying proof...")
         await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+        print("Block verification proof verified!")
     print(f"Block proof with {num_inner_blocks + 1 + 6} total blocks created!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
@@ -710,6 +771,7 @@ async def build_recursive_block_proof_and_input(
     )
 
 
+@persistent_async_cache()
 async def build_recursive_payment_proof_and_input(
         lps: list[LiquidityProvider],
         txn_data_no_segwit_hex: str,
@@ -739,9 +801,11 @@ async def build_recursive_payment_proof_and_input(
     if verify:
         print("Verifying proof...")
         await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+        print("Payment verification proof verified!")
     print("Payment verification proof gen successful!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
+
     return RecursiveProofArtifact(
         verification_key=vkey_as_fields,
         proof=proof_as_fields,
@@ -761,17 +825,20 @@ async def build_giga_circuit_proof_and_input(
     expected_payout: int,
     safe_block_height: int,
     block_height_delta: int,
-    circuit_path: str = "circuits/giga"
+    circuit_path: str = "circuits/giga",
+    verify: bool = False
     ):
     # [1] compile giga 
     
     # [2] build recursive proofs and inputs 
     sha_recursive_artifact = await build_recursive_sha256_proof_and_input(
-        data_hex_str=txn_data_no_segwit_hex
+        data_hex_str=txn_data_no_segwit_hex,
+        verify=verify
     )
     print()
     lp_hash_recursive_artifact = await build_recursive_lp_hash_proof_and_input(
-        lps=lp_reservations
+        lps=lp_reservations,
+        verify=verify
     )
     print()
     block_recursive_artifact = await build_recursive_block_proof_and_input(
@@ -779,14 +846,16 @@ async def build_giga_circuit_proof_and_input(
         safe_block=safe_block_header,
         retarget_block=retarget_block_header,
         inner_blocks=inner_block_headers,
-        confirmation_blocks=confirmation_block_headers
+        confirmation_blocks=confirmation_block_headers,
+        verify=verify
     )
     print()
     payment_recursive_artifact = await build_recursive_payment_proof_and_input(
         lps=lp_reservations,
         txn_data_no_segwit_hex=txn_data_no_segwit_hex,
         order_nonce_hex=order_nonce_hex,
-        expected_payout=expected_payout
+        expected_payout=expected_payout,
+        verify=verify
     )
     print()
 
@@ -817,7 +886,7 @@ async def build_giga_circuit_proof_and_input(
         txn_data_no_segwit_hex=txn_data_no_segwit_hex,
         proposed_merkle_root_hex=proposed_block_header.merkle_root,
         proposed_merkle_proof=merkle_proof,
-        lp_reservation_hash_hex=lp_hash_recursive_artifact.key_hash,
+        lp_reservation_hash_hex=compute_lp_reservation_hash(lp_reservations),
         order_nonce_hex=order_nonce_hex,
         expected_payout=expected_payout,
         lp_reservation_data=lp_reservations,
@@ -845,7 +914,14 @@ async def build_giga_circuit_proof_and_input(
 
     print("Creating proof...")
     public_inputs, proof = await create_proof(vk, circuit_path, BB)
+    print("Giga circuit proof gen successful!")
 
+    if verify:
+        print("Verifying proof...")
+        await verify_proof(vk, circuit_path, BB)
+        print("Giga circuit proof verified!")
+
+    print("Creating solidity proof...")
     proof_hex = normalize_hex_str(await create_solidity_proof(project_name="giga", compilation_dir=circuit_path))
     print("Giga circuit proof gen successful!")
     return SolidityProofArtifact(
