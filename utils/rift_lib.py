@@ -43,6 +43,7 @@ CONFIRMATION_BLOCK_DELTA = 5
 class SolidityProofArtifact(BaseModel):
     proof: str 
     aggregation_object: list[str]
+    full_public_inputs: list[str]
 
 class RecursiveProofArtifact(BaseModel):
     verification_key: list[str]
@@ -885,6 +886,7 @@ async def build_giga_circuit_proof_and_input(
     print("Giga circuit proof gen successful!")
     return SolidityProofArtifact(
         proof=proof_hex,
-        aggregation_object=public_inputs[-16:]
+        aggregation_object=public_inputs[-16:],
+        full_public_inputs=public_inputs
     )
 
