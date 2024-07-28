@@ -637,7 +637,6 @@ async def build_recursive_lp_hash_proof_and_input(
     await build_raw_verification_key(vk_file, circuit_path, BB)
     print("Creating proof...")
     public_inputs_as_fields, proof_as_fields = await create_proof(
-        pub_inputs=703,
         vk_path=vk_file,
         compilation_dir=circuit_path,
         bb_binary=BB
@@ -697,7 +696,7 @@ async def build_recursive_block_proof_and_input(
     print("Building verification key...")
     await build_raw_verification_key(vk, circuit_path, BB)
     print("Creating proof...")
-    public_inputs_as_fields, proof_as_fields = await create_proof(pub_inputs=12, vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    public_inputs_as_fields, proof_as_fields = await create_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
     if verify:
         print("Verifying proof...")
         await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
@@ -737,7 +736,7 @@ async def build_recursive_payment_proof_and_input(
     print("Building verification key...")
     await build_raw_verification_key(vk, circuit_path, BB)
     print("Creating proof...")
-    public_inputs_as_fields, proof_as_fields = await create_proof(pub_inputs=930, vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    public_inputs_as_fields, proof_as_fields = await create_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
     if verify:
         print("Verifying proof...")
         await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
