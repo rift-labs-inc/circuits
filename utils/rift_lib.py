@@ -885,7 +885,7 @@ async def build_giga_circuit_proof_and_input(
     proof_hex = normalize_hex_str(await create_solidity_proof(project_name="giga", compilation_dir=circuit_path))
     print("Giga circuit proof gen successful!")
     return SolidityProofArtifact(
-        proof=proof_hex,
+        proof=proof_hex[1024:], # noir encodes the aggregation object into the first 512 bytes of the proof
         aggregation_object=public_inputs[-16:],
         full_public_inputs=public_inputs
     )
