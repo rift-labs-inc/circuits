@@ -39,43 +39,6 @@ MAX_INNER_BLOCKS = 24
 CONFIRMATION_BLOCK_DELTA = 5
 
 
-def persistent_async_cache(maxsize=128, cache_dir='./cache'):
-    def decorator(func):
-        # Create cache directory if it doesn't exist
-        Path(cache_dir).mkdir(parents=True, exist_ok=True)
-        
-        # Generate filename based on the function name
-        filename = os.path.join(cache_dir, f"{func.__name__}_cache.pkl")
-        
-        # Load cache from file if it exists
-        if os.path.exists(filename):
-            with open(filename, 'rb') as f:
-                cache = pickle.load(f)
-        else:
-            cache = {}
-
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            key = str(args) + str(kwargs)
-            
-            if key in cache:
-                return cache[key]
-            
-            task = asyncio.create_task(func(*args, **kwargs))
-            result = await task
-            
-            cache[key] = result
-            
-            # Save cache to file
-            with open(filename, 'wb') as f:
-                pickle.dump(cache, f)
-            
-            return result
-
-        return wrapper
-
-    return decorator
-
 
 class SolidityProofArtifact(BaseModel):
     proof: str 
@@ -619,7 +582,6 @@ def get_chunk_file_name(chunk_id: int):
 
 
 
-@persistent_async_cache()
 async def build_recursive_sha256_proof_and_input(
     data_hex_str: str,
     circuit_path: str = "circuits/recursive_sha/src/main.nr",
@@ -674,7 +636,6 @@ async def build_recursive_sha256_proof_and_input(
     )
 
 
-@persistent_async_cache()
 async def build_recursive_lp_hash_proof_and_input(
     lps: list[LiquidityProvider],
     circuit_path: str = "circuits/lp_hash_verification",
@@ -715,7 +676,6 @@ async def build_recursive_lp_hash_proof_and_input(
     )
 
 
-@persistent_async_cache()
 async def build_recursive_block_proof_and_input(
     proposed_block: Block,
     safe_block: Block,
@@ -771,7 +731,6 @@ async def build_recursive_block_proof_and_input(
     )
 
 
-@persistent_async_cache()
 async def build_recursive_payment_proof_and_input(
         lps: list[LiquidityProvider],
         txn_data_no_segwit_hex: str,
