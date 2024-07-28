@@ -602,8 +602,6 @@ async def build_recursive_sha256_proof_and_input(
     await create_recursive_sha_witness(data, max_chunks, build_folder.name)
     public_inputs_as_fields, proof_as_fields = await create_proof(
         vk_file,
-        int.from_bytes(bytes.fromhex(
-            normalize_hex_str(vkey_as_fields[4])), "big"),
         build_folder.name,
         BB,
     )
