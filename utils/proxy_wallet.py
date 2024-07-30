@@ -234,19 +234,22 @@ if __name__ == "__main__":
     mainnet = True
     wallet = get_wallet(mainnet=mainnet)
 
-    order_nonce = "e9dda4b8016dc1e3e5ec7a19be6b2cdaaa8b50eef550c6c7343724849bf772a4"
-    lp_wallets = [LiquidityProvider(amount=100000000000000, btc_exchange_rate=205000000000, locking_script_hex='001463dff5f8da08ca226ba01f59722c62ad9b9b3eaa'), LiquidityProvider(amount=100000000000000, btc_exchange_rate=205000000000, locking_script_hex='0014aa86191235be8883693452cf30daf854035b085b'), LiquidityProvider(amount=100000000000000, btc_exchange_rate=205000000000, locking_script_hex='00146ab8f6c80b8a7dc1b90f7deb80e9b59ae16b7a5a')]
+    ORDER_NONCE = "f0ad57e677a89d2c2aaae4c5fd52ba20c63c0a05c916619277af96435f874c64"
+    LP_WALLETS = [LiquidityProvider(amount=99835000000000, btc_exchange_rate=205000000000, locking_script_hex='001463dff5f8da08ca226ba01f59722c62ad9b9b3eaa'), LiquidityProvider(amount=99835000000000, btc_exchange_rate=205000000000, locking_script_hex='0014aa86191235be8883693452cf30daf854035b085b'), LiquidityProvider(amount=99835000000000, btc_exchange_rate=205000000000, locking_script_hex='00146ab8f6c80b8a7dc1b90f7deb80e9b59ae16b7a5a')]
+    PROPOSED_BLOCK_HASH = "00000000000000000003679bc829350e7b26cc98d54030c2edc5e470560c1fdc"
+    PROPOSED_TXID = "8df99d697780166f12df68b1e2410a909374b6414da57a1a65f3b84eb8a4dd0f"
+    TXVOUT = 4
     unbroadcast_txn = asyncio.run(
         build_rift_payment_transaction(
-            order_nonce_hex=order_nonce,
-            liquidity_providers=lp_wallets,
-            in_tx_block_hash_hex="000000000000000000012ea59bc3279d3e025bb04c00c58f2aa0c5c717c7a74d",
-            in_txid_hex="4535a5665d61c41220d59bbf96dd5e6bec83cd187585e8aeb0eb8b6b6f1f737e",
-            in_txvout=38,
+            order_nonce_hex=ORDER_NONCE,
+            liquidity_providers=LP_WALLETS,
+            in_tx_block_hash_hex=PROPOSED_BLOCK_HASH,
+            in_txid_hex=PROPOSED_TXID,
+            in_txvout=TXVOUT,
             wallet=wallet,
             rpc_url=get_rpc(mainnet=mainnet),
             mainnet=mainnet,
-            fee_sats=1500,
+            fee_sats=1100,
         )
     )
     print("Txn Data:", json.dumps(unbroadcast_txn, indent=2))
