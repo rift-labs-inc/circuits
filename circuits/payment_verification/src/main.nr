@@ -191,7 +191,7 @@ pub fn assert_payment_utxos_exist(
 	assert(lp_count + 1 <= output_counter);
     data_pointer += output_counter_byte_len as u64;
 
-	let mut calculated_payout: u64 = 0;
+  let mut calculated_payout = U128::from_integer(0);
 
 	for i in 0..constants::MAX_LIQUIDITY_PROVIDERS {
 		if i < (lp_count) as u32 {
@@ -211,15 +211,15 @@ pub fn assert_payment_utxos_exist(
 				|i|  i < sig_counter as u64
 			);
 
-			assert(value == reserved_liquidity_providers[i].amount_reserved);
+			assert(value == (reserved_liquidity_providers[i].amount_reserved/reserved_liquidity_providers[i].btc_exchange_rate));
 			assert(lockingScript == reserved_liquidity_providers[i].script_pub_key);
-			calculated_payout += value / reserved_liquidity_providers[i].btc_exchange_rate;
+			calculated_payout += U128::from_integer(value) * U128::from_integer(reserved_liquidity_providers[i].btc_exchange_rate);
 
 			data_pointer += sig_counter;
 		}
 	}
 
-	assert(calculated_payout == expected_payout);
+	assert(calculated_payout == U128::from_integer(expected_payout));
 	// Now we're at the end of the payment outputs, the next output should be the inscription
 
 	data_pointer += AMOUNT_LEN as u64;

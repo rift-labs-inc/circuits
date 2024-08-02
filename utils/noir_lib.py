@@ -124,7 +124,7 @@ async def verify_proof(vk_path: str, compilation_dir: str, bb_binary: str):
     await run_command(command, compilation_dir)
 
 async def create_proof(
-    vk_path: str, pub_inputs: int, compilation_dir: str, bb_binary: str
+    vk_path: str, compilation_dir: str, bb_binary: str
 ):
     command = f"{bb_binary} prove -o ./target/proof"
     # Build the proof
@@ -134,5 +134,5 @@ async def create_proof(
     # Extract generated proof fields
     stdout = await run_command(command, compilation_dir) 
     proof_output = json.loads(stdout)
-    return proof_output[:pub_inputs], proof_output[pub_inputs:]
+    return proof_output[:len(proof_output)-93], proof_output[-93:]
 
