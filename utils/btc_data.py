@@ -2,6 +2,7 @@ import os
 import asyncio
 import json
 import sys
+from typing import Optional
 
 
 from dotenv import load_dotenv
@@ -18,52 +19,38 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from .rift_lib import CONFIRMATION_BLOCK_DELTA, Block
 from .noir_lib import normalize_hex_str
 
-
-
 load_dotenv()
 
-# DEPRECATE
+class RiftBitcoinData(BaseModel):
+    txn_data_no_segwit_hex: str | None 
+    proposed_block_header: Block
+    safe_block_header: Block
+    retarget_block_header: Block
+    inner_block_headers: list[Block]
+    confirmation_block_headers: list[Block]
+    block_height_delta: int
 
+async def fetch_block_from_height(height: int, rpc_url: str):
+    payload = json.dumps({
+        "jsonrpc": "1.0",
+        "id": "curltext",
+        "method": "getblockhash",
+        "params": [height]
+    })
 
-async def fetch_block_data_mainnet_public(height: int):
-    url = f"https://chain.api.btc.com/v3/block/{height}"
-    timeout = httpx.Timeout(10.0, read=20.0)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.get(url)
+    headers = {
+        'content-type': 'text/plain;',
+    }
+
+    async with httpx.AsyncClient() as client:
+        # type:ignore
+        response = await client.post(rpc_url, data=payload, headers=headers) #type:ignore
         if response.status_code == 200:
-            data = response.json()
-            if data['status'] == 'success' and 'data' in data:
-                block_data = data['data']
-                return Block(
-                    height=block_data['height'],
-                    version=block_data['version'],
-                    prev_block_hash=block_data['prev_block_hash'],
-                    merkle_root=block_data['mrkl_root'],
-                    timestamp=block_data['timestamp'],
-                    bits=block_data['bits'],
-                    nonce=block_data['nonce'],
-                    txns=[]
-                )
-            else:
-                raise Exception(
-                    f"API returned an error for height {height}: {data.get('message', 'No message')}")
+            block_hash = response.json()['result']
+            return await fetch_block_data(block_hash, height, rpc_url)
         else:
             raise Exception(
-                f"Failed to fetch block data for height {height}, HTTP status {response.status_code}")
-
-
-# DEPRECATE
-async def fetch_initial_block_input_mainnet_public(proposed_block_height: int, safe_block_height: int):
-    retarget_height = proposed_block_height - (proposed_block_height % 2016)
-    print(
-        f"Fetching {proposed_block_height - safe_block_height + 1} block(s) from height {safe_block_height} to {proposed_block_height}...")
-    blocks = await asyncio.gather(*[
-        fetch_block_data_mainnet_public(height) for height in range(safe_block_height, proposed_block_height+1)
-    ])
-
-    retarget_block = await fetch_block_data_mainnet_public(retarget_height)
-
-    return blocks, retarget_block
+                f"Failed to fetch block data: HTTP {response.status_code}, Response: {response.text}")
 
 
 async def fetch_block_data(block_hash: str, height: int, rpc_url: str):
@@ -190,19 +177,10 @@ async def broadcast_transaction(tx_hex: str, rpc_url: str):
 def get_rpc(mainnet: bool = True):
     return os.environ["MAINNET_BITCOIN_RPC"] if mainnet else os.environ["TESTNET_BITCOIN_RPC"]
 
-class RiftBitcoinData(BaseModel):
-    txn_data_no_segwit_hex: str
-    proposed_block_header: Block
-    safe_block_header: Block
-    retarget_block_header: Block
-    inner_block_headers: list[Block]
-    confirmation_block_headers: list[Block]
-    block_height_delta: int
+
 
 # Uses an bitcoin rpc client to fetch block data, close to prod impl
-
-
-async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, txid: str, mainnet: bool = True) -> RiftBitcoinData:
+async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, txid: Optional[str] = None, mainnet: bool = True) -> RiftBitcoinData:
     # use bitcoin lib to fetch block Data
     SelectParams("mainnet" if mainnet else "testnet")
     rpc_url = get_rpc(mainnet)
@@ -235,19 +213,27 @@ async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, 
 
     # TODO: Use semaphore to limit the number of requests made at once, or use self hosted btc node
     # quicknode rate limit prevents us from throwing all requests in this gather, also why we have sleeps
-    proposed_block, safe_block, retarget_block, serialized_txn = await asyncio.gather(*[
+    coros = [
         fetch_block_data(proposed_block_hash, proposed_block_height, rpc_url),
         fetch_block_data(safe_block_hash, safe_block_height, rpc_url),
         fetch_block_data(retarget_block_hash, retarget_height, rpc_url),
-        fetch_transaction_data_in_block(txid, proposed_block_hash, rpc_url)
-    ])
+    ]
+    if txid:
+        coros.append(fetch_transaction_data_in_block(txid, proposed_block_hash, rpc_url))
+    data = await asyncio.gather(*coros)
+    if txid:
+        proposed_block, safe_block, retarget_block, serialized_txn = data
+        deserialized_txn = CTransaction.deserialize(bytes.fromhex(str(serialized_txn)))
+        txn_data_no_segwit_hex = CTransaction(deserialized_txn.vin, deserialized_txn.vout, deserialized_txn.nLockTime, deserialized_txn.nVersion).serialize().hex()
+    else:
+        proposed_block, safe_block, retarget_block = data
+        txn_data_no_segwit_hex = None
+    
     await asyncio.sleep(1)
     inner_blocks = await fetch_inner_blocks()
     await asyncio.sleep(1)
     confirmation_blocks = await fetch_confirmation_blocks()
-
-    deserialized_txn = CTransaction.deserialize(bytes.fromhex(serialized_txn))
-    txn_data_no_segwit_hex = CTransaction(deserialized_txn.vin, deserialized_txn.vout, deserialized_txn.nLockTime, deserialized_txn.nVersion).serialize().hex()
+    
 
     return RiftBitcoinData(
         txn_data_no_segwit_hex=txn_data_no_segwit_hex,
