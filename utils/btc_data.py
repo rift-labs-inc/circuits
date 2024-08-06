@@ -3,6 +3,7 @@ import asyncio
 import json
 import sys
 from typing import Optional
+import time
 
 
 from dotenv import load_dotenv
@@ -20,6 +21,30 @@ from .rift_lib import CONFIRMATION_BLOCK_DELTA, Block
 from .noir_lib import normalize_hex_str
 
 load_dotenv()
+
+MAX_REQUESTS_PER_SECOND = 5
+
+class RateLimiter:
+    def __init__(self, rate_limit):
+        self.rate_limit = rate_limit
+        self.tokens = rate_limit
+        self.updated_at = time.monotonic()
+
+    async def acquire(self):
+        while True:
+            now = time.monotonic()
+            time_passed = now - self.updated_at
+            self.tokens += time_passed * self.rate_limit
+            if self.tokens > self.rate_limit:
+                self.tokens = self.rate_limit
+            self.updated_at = now
+
+            if self.tokens >= 1:
+                self.tokens -= 1
+                return
+            
+            wait_time = (1 - self.tokens) / self.rate_limit
+            await asyncio.sleep(wait_time)
 
 class RiftBitcoinData(BaseModel):
     txn_data_no_segwit_hex: str | None 
@@ -180,47 +205,47 @@ def get_rpc(mainnet: bool = True):
 
 
 # Uses an bitcoin rpc client to fetch block data, close to prod impl
+
 async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, txid: Optional[str] = None, mainnet: bool = True) -> RiftBitcoinData:
-    # use bitcoin lib to fetch block Data
     SelectParams("mainnet" if mainnet else "testnet")
     rpc_url = get_rpc(mainnet)
     retarget_height = proposed_block_height - (proposed_block_height % 2016)
     num_inner_blocks = proposed_block_height - safe_block_height
 
+    # Create a rate limiter
+    rate_limiter = RateLimiter(MAX_REQUESTS_PER_SECOND)
+
+    async def fetch_with_rate_limit(coro):
+        await rate_limiter.acquire()
+        return await coro
+
     proposed_block_hash, safe_block_hash, retarget_block_hash = await asyncio.gather(*[
-        fetch_block_hash(proposed_block_height, rpc_url),
-        fetch_block_hash(safe_block_height, rpc_url),
-        fetch_block_hash(retarget_height, rpc_url)
+        fetch_with_rate_limit(fetch_block_hash(height, rpc_url))
+        for height in [proposed_block_height, safe_block_height, retarget_height]
     ])
 
-    async def fetch_confirmation_blocks():
-        height_list = [height for height in range(proposed_block_height+1, proposed_block_height+CONFIRMATION_BLOCK_DELTA+1)]
+    async def fetch_blocks(start_height, count):
+        height_list = range(start_height, start_height + count)
         block_hashes = await asyncio.gather(*[
-            fetch_block_hash(height, rpc_url)
+            fetch_with_rate_limit(fetch_block_hash(height, rpc_url))
             for height in height_list
         ])
         return await asyncio.gather(*[
-            fetch_block_data(block_hash, height_list[i], rpc_url) for i, block_hash in enumerate(block_hashes)])
-
-    async def fetch_inner_blocks():
-        height_list = [height for height in range(safe_block_height + 1, safe_block_height + num_inner_blocks)]
-        block_hashes = await asyncio.gather(*[
-            fetch_block_hash(height, rpc_url)
-            for height in height_list
+            fetch_with_rate_limit(fetch_block_data(block_hash, height, rpc_url))
+            for height, block_hash in zip(height_list, block_hashes)
         ])
-        return await asyncio.gather(*[
-            fetch_block_data(block_hash, height_list[i], rpc_url) for i, block_hash in enumerate(block_hashes)])
 
-    # TODO: Use semaphore to limit the number of requests made at once, or use self hosted btc node
-    # quicknode rate limit prevents us from throwing all requests in this gather, also why we have sleeps
     coros = [
-        fetch_block_data(proposed_block_hash, proposed_block_height, rpc_url),
-        fetch_block_data(safe_block_hash, safe_block_height, rpc_url),
-        fetch_block_data(retarget_block_hash, retarget_height, rpc_url),
+        fetch_with_rate_limit(fetch_block_data(proposed_block_hash, proposed_block_height, rpc_url)),
+        fetch_with_rate_limit(fetch_block_data(safe_block_hash, safe_block_height, rpc_url)),
+        fetch_with_rate_limit(fetch_block_data(retarget_block_hash, retarget_height, rpc_url)),
     ]
+
     if txid:
-        coros.append(fetch_transaction_data_in_block(txid, proposed_block_hash, rpc_url))
+        coros.append(fetch_with_rate_limit(fetch_transaction_data_in_block(txid, proposed_block_hash, rpc_url)))
+
     data = await asyncio.gather(*coros)
+
     if txid:
         proposed_block, safe_block, retarget_block, serialized_txn = data
         deserialized_txn = CTransaction.deserialize(bytes.fromhex(str(serialized_txn)))
@@ -228,12 +253,9 @@ async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, 
     else:
         proposed_block, safe_block, retarget_block = data
         txn_data_no_segwit_hex = None
-    
-    await asyncio.sleep(1)
-    inner_blocks = await fetch_inner_blocks()
-    await asyncio.sleep(1)
-    confirmation_blocks = await fetch_confirmation_blocks()
-    
+
+    inner_blocks = await fetch_blocks(safe_block_height + 1, num_inner_blocks - 1)
+    confirmation_blocks = await fetch_blocks(proposed_block_height + 1, CONFIRMATION_BLOCK_DELTA)
 
     return RiftBitcoinData(
         txn_data_no_segwit_hex=txn_data_no_segwit_hex,

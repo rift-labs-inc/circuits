@@ -26,33 +26,54 @@ async def test_single_pair():
     #print("Generating verification key...")
     #vkhash, vk = await get_recursive_block_tree_circuit_verification_key()
     
-    print(await build_block_pair_proof_input(
+    await build_block_pair_proof_input(
         block_1=block_data.safe_block_header,
         block_2=block_data.proposed_block_header,
         last_retarget_block=block_data.retarget_block_header,
-    ))
+    )
+    print("Single pair proof built")
 
-"""
 async def create_simple_1_level_tree():
     print("Create Simple 1 Level Tree...")
     proposed_height = 848534
-    safe_delta = 3
+    safe_delta = 2
     print(f"{safe_delta} New Blocks")
-    blocks, retarget_block = await fetch_initial_block_input_mainnet_public(
+    block_data = await get_rift_btc_data(
         proposed_block_height=proposed_height,
         safe_block_height=proposed_height - safe_delta,
     )
+    blocks = [block_data.safe_block_header, *block_data.inner_block_headers, block_data.proposed_block_header]
 
-    print("Final proof", await build_block_proof_and_input(
+    proof_data = await build_block_proof_and_input(
         blocks=blocks,
-        last_retarget_block=retarget_block
-    ))
-"""
+        last_retarget_block=block_data.retarget_block_header,
+    )
+    print("Height", f"R{proof_data.height}")
+    print("Simple 1 Level Tree proof built")
+
+async def create_balanced_2_level_tree():
+    print("Create Balanced 2 Level Tree...")
+    proposed_height = 848534
+    safe_delta = 4
+    print(f"{safe_delta} New Blocks")
+    block_data = await get_rift_btc_data(
+        proposed_block_height=proposed_height,
+        safe_block_height=proposed_height - safe_delta,
+    )
+    blocks = [block_data.safe_block_header, *block_data.inner_block_headers, block_data.proposed_block_header]
+
+    proof_data = await build_block_proof_and_input(
+        blocks=blocks,
+        last_retarget_block=block_data.retarget_block_header,
+    )
+    print("Height", f"R{proof_data.height}")
+    print("Balance 2 Level Tree proof built")
 
 
 def main():
-    asyncio.run(test_single_pair())
+    #asyncio.run(test_single_pair())
     #asyncio.run(create_simple_1_level_tree())
+    asyncio.run(create_balanced_2_level_tree())
 
 
 if __name__ == "__main__":

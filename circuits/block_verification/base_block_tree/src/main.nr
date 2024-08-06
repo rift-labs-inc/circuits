@@ -1,5 +1,5 @@
 use dep::std;
-use dep::block_lib::vkey_hashes::{PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH};
+use dep::block_lib::vk_hashes::{PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH};
 use dep::block_lib::{build_pair_public_input};
 
 #[recursive]
@@ -26,7 +26,7 @@ fn main(
     assert(last_block_height == first_block_height, "Ensure Buffer Tree");
     assert(first_block_hash == last_block_hash);
   } else { // either first or last is buffer
-    assert(last_block_height == first_block_height + 1, "Ensure Impalanced Tree");
+    assert(last_block_height == first_block_height + 1, "Ensure Imbalanced Tree");
   }
   
   // Left Pair

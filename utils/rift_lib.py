@@ -837,7 +837,6 @@ async def build_block_tree_base_proof_and_input(
     shutil.copytree("circuits", os.path.join(temp_dir.name, "circuits"))
     circuit_path = os.path.join(temp_dir.name, circuit_path)
     os.makedirs(circuit_path, exist_ok=True)
-    print("Proof", first_pair_proof.proof_artifact.proof) 
     await build_block_tree_circuit_prover_toml(
         first_block_hash_hex=compute_block_hash(first_block),
         last_block_hash_hex=compute_block_hash(last_block),
@@ -862,7 +861,7 @@ async def build_block_tree_base_proof_and_input(
     print("Building verification key...")
     await build_raw_verification_key(vk, circuit_path, BB)
     print("Creating proof...")
-    public_inputs_as_fields, proof_as_fields = await create_proof(pub_inputs=101, vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    public_inputs_as_fields, proof_as_fields = await create_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
     print("Block tree proof gen successful!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
@@ -931,7 +930,6 @@ async def build_block_tree_proof_and_input(
 
     print("Compiling block tree verification circuit...")
     await compile_project(circuit_path)
-    print("Proof", first_pair_proof.proof_artifact.proof)
     await build_block_tree_circuit_prover_toml(
         first_block_hash_hex=compute_block_hash(first_block),
         last_block_hash_hex=compute_block_hash(last_block),
@@ -955,7 +953,7 @@ async def build_block_tree_proof_and_input(
     print("Building verification key...")
     await build_raw_verification_key(vk, circuit_path, BB)
     print("Creating proof...")
-    public_inputs_as_fields, proof_as_fields = await create_proof(pub_inputs=101, vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    public_inputs_as_fields, proof_as_fields = await create_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
     print("Block tree proof gen successful!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
@@ -984,11 +982,9 @@ async def build_block_pair_proof_input(
     original_circuit_path = circuit_path
     if safe_concurrent:
         temp_dir = tempfile.TemporaryDirectory()
-        # Copy the entire 'circuits' directory
         shutil.copytree("circuits", os.path.join(temp_dir.name, "circuits"))
-        # Update circuit_path to point to the correct location in the temp directory
         circuit_path = os.path.join(temp_dir.name, original_circuit_path)
-        # Ensure the directory exists
+        # TODO: removethis?
         os.makedirs(circuit_path, exist_ok=True) 
 
     print("Compiling block pair verification circuit...")
@@ -1010,7 +1006,7 @@ async def build_block_pair_proof_input(
     await build_raw_verification_key(vk, circuit_path, BB)
     
     print("Creating proof...")
-    public_inputs_as_fields, proof_as_fields = await create_proof(pub_inputs=100, vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    public_inputs_as_fields, proof_as_fields = await create_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
     
     print("Block pair proof gen successful!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
@@ -1044,14 +1040,13 @@ async def build_block_proof_and_input(
     for block in blocks:
         assert block.height - (block.height % 2016) == last_retarget_block.height
 
-    r = math.ceil(math.log2(len(blocks)))
-    print("Max Tree Height: ", r) 
+    max_height = math.ceil(math.log2(len(blocks)-1))
+    print("Max Tree Height: ", max_height) 
 
     proof_coros = []
     block_pairs = []
     bounded_semaphore = asyncio.BoundedSemaphore(max_concurrent_proof_gen)
     
-    print("Generating pair proofs...")
     for i, _ in enumerate(blocks):
         if i == len(blocks)-1:
             break
@@ -1064,6 +1059,7 @@ async def build_block_proof_and_input(
         block_pairs.append((blocks[i], blocks[i+1]))
         proof_coros.append(proof_gen_semaphore_wrapper(bounded_semaphore, coro, f"{i+1}/{len(blocks)-1}"))
     
+    print("Pair Proof count: ", len(proof_coros))
     pair_proofs = await asyncio.gather(*proof_coros)
 
     # if there is only one pair, return the proof and block pair b/c no need to roll anything up
@@ -1087,17 +1083,20 @@ async def build_block_proof_and_input(
             last_retarget_block,
             safe_concurrent=True
         )
-        buffer_count = 2**r - len(pair_proofs)
+        buffer_count = 2**max_height - len(pair_proofs)
         buffered_pair_proofs = pair_proofs[:-1] + [buffer_proof]*buffer_count + [pair_proofs[-1]]
         buffered_block_pairs = block_pairs[:-1] + [(blocks[-2], blocks[-2])]*buffer_count + [block_pairs[-1]]
     print("Buffered Pair Proof count: ", len(buffered_pair_proofs))
 
     print("PAIR CIRCUITS GENERATED")
+    print("Generating Base Tree Proofs (R1)...")
 
     # first do the base tree proofs
     base_tree_proofs = []
     base_tree_pairs = []
+    iters = 0
     for i in range(0, len(buffered_pair_proofs), 2):
+        iters += 1
         coro = build_block_tree_proof_and_input(
             first_block=buffered_block_pairs[i][0],
             last_block=buffered_block_pairs[i+1][1],
@@ -1108,7 +1107,7 @@ async def build_block_proof_and_input(
             height=1
         )
         base_tree_pairs.append((buffered_block_pairs[i][0], buffered_block_pairs[i+1][1]))
-        base_tree_proofs.append(proof_gen_semaphore_wrapper(bounded_semaphore, coro, f"{i+1}/{len(buffered_pair_proofs)//2}"))
+        base_tree_proofs.append(proof_gen_semaphore_wrapper(bounded_semaphore, coro, f"{iters}/{len(buffered_pair_proofs)//2}"))
 
     base_tree_proof_artifacts = await asyncio.gather(*base_tree_proofs)
     if len(base_tree_proof_artifacts) == 1:
@@ -1122,11 +1121,13 @@ async def build_block_proof_and_input(
     # Now rollup the pairs into a tree
     current_pair_proofs = base_tree_proof_artifacts
     current_block_pairs = buffered_block_pairs
-    for j in range(r):
+    for j in range(max_height):
         print("Generating Height:", j+2)
         new_pair_proofs = []
         new_block_pairs = []
+        iters = 0
         for i in range(0, len(current_pair_proofs), 2):
+            iters += 1
             coro = build_block_tree_proof_and_input(
                 first_block=current_block_pairs[i][0],
                 last_block=current_block_pairs[i+1][1],
@@ -1137,7 +1138,7 @@ async def build_block_proof_and_input(
                 height=j+2
             )
             new_block_pairs.append((current_block_pairs[i][0], current_block_pairs[i+1][1]))
-            new_pair_proofs.append(proof_gen_semaphore_wrapper(bounded_semaphore, coro, f"{(i*2)//2+1}/{len(buffered_pair_proofs)//2}"))
+            new_pair_proofs.append(proof_gen_semaphore_wrapper(bounded_semaphore, coro, f"{iters}/{len(current_pair_proofs)//2}"))
         new_proof_artifacts = await asyncio.gather(*new_pair_proofs)
 
         current_pair_proofs = new_proof_artifacts

@@ -1,4 +1,4 @@
-mod vkey_hashes;
+mod vk_hashes;
 
 pub fn build_pair_public_input(
     block_hash_1:  [u8; 32],
