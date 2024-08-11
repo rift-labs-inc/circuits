@@ -23,14 +23,8 @@ pub fn verify_block(
     previous_block_height: u64
 ) {
     // [1] verify proposed target is equal to real target
-    // TODO: Handle target properly regarding retarget, also potentially add a testnet flag
-    // so that tests don't fail due to nonstandard difficulty calculation
     let proposed_target = bits_to_target(proposed_block.bits);
     assert(retarget_block.bits == proposed_block.bits);
-
-    // TODO: Is this necessary post retarget update?
-    //let real_target = calculate_real_target(retarget_block, proposed_block);
-    //assert(proposed_target == real_target);
 
     // [2] verify the proposed block height is one greater than previous_block_height
     assert(proposed_block.height as u64 == previous_block_height + 1);

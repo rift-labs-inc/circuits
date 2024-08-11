@@ -1,8 +1,7 @@
 // TODO: handle retarget blocks properly 
 use dep::std;
 use dep::rift_lib::byte_lib;
-mod bitcoin;
-use bitcoin::{Block, build_block_hash, verify_block};
+use dep::block_lib::bitcoin::{Block, build_block_hash, verify_block};
 use dep::block_lib::{build_tree_circuit_public_input};
 
 

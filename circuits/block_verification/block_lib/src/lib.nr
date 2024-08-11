@@ -1,4 +1,5 @@
 mod vk_hashes;
+mod bitcoin;
 
 pub fn build_pair_public_input(
     block_hash_1:  [u8; 32],
@@ -33,9 +34,10 @@ pub fn build_tree_circuit_public_input(
 	first_is_buffer: bool,
 	last_is_buffer: bool,
   last_retarget_block_hash: [u8; 32],
-  last_retarget_block_height: u64
-)-> [Field; 101] {
-  let mut public_input = [0 as Field; 101];
+  last_retarget_block_height: u64,
+  subcircuit_aggregation_object: [Field; 16],
+)-> [Field; 117] {
+  let mut public_input = [0 as Field; 117];
 
   for i in 0..32 {
     public_input[i] = first_block_hash[i] as Field;
@@ -50,6 +52,8 @@ pub fn build_tree_circuit_public_input(
   }
   public_input[100] = last_retarget_block_height as Field;
 
-
+  for i in 0..16 {
+    public_input[i+101] = subcircuit_aggregation_object[i];
+  }
   public_input
 }

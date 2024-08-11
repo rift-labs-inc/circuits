@@ -84,14 +84,16 @@ async def compile_project(compilation_dir: str, return_binary = False):
         async with aiofiles.open(os.path.join(compilation_dir, "target/acir.gz"), "rb") as file:
             return await file.read()
 
-async def create_witness(prover_toml_string: str, compilation_dir: str, return_witness: bool = False):
+async def create_witness(prover_toml_string: str, compilation_dir: str, return_witness: bool = False, show_output = False):
     async with aiofiles.open(
         os.path.join(compilation_dir, "Prover.toml"), "w+"
     ) as file:
         await file.write(prover_toml_string)
 
     command = "nargo execute witness"
-    await run_command(command, compilation_dir, strict_failure=False)
+    stdout = await run_command(command, compilation_dir, strict_failure=False)
+    if show_output:
+        print("Witness STDOUT", stdout.decode())
     if return_witness:
         async with aiofiles.open(os.path.join(compilation_dir, "target/witness.gz"), "rb") as file:
             return await file.read()

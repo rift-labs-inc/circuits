@@ -28,6 +28,15 @@ fn main(
   } else { // either first or last is buffer
     assert(last_block_height == first_block_height + 1, "Ensure Imbalanced Tree");
   }
+  println("Left Pair");
+  println(build_pair_public_input(
+      first_block_hash,
+      link_block_hash,
+      last_retarget_block_hash,
+      first_block_height,
+      last_retarget_block_height,
+      first_is_buffer
+  ).as_slice());
   
   // Left Pair
   std::verify_proof(
@@ -44,8 +53,21 @@ fn main(
     PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH
   );
 
+  println("Right Pair");
+  println(build_pair_public_input(
+      link_block_hash,
+      last_block_hash,
+      last_retarget_block_hash,
+      last_block_height,
+      last_retarget_block_height,
+      last_is_buffer
+    ).as_slice());
 
   // Right Pair
+  let mut second_pair_initial_height = last_block_height;
+  if !last_is_buffer {
+    second_pair_initial_height -= 1;
+  }
   std::verify_proof(
     last_pair_verification_key.as_slice(),
     last_pair_proof.as_slice(),
@@ -53,7 +75,7 @@ fn main(
       link_block_hash,
       last_block_hash,
       last_retarget_block_hash,
-      last_block_height,
+      second_pair_initial_height,
       last_retarget_block_height,
       last_is_buffer
     ).as_slice(),

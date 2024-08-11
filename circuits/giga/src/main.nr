@@ -99,13 +99,13 @@ fn main(
 
     // Block Verification
     /*
-    confirmation_block_hash_encoded: pub [Field; 2],
-    proposed_block_hash_encoded: pub [Field; 2],
-    safe_block_hash_encoded: pub [Field; 2],
-    retarget_block_hash_encoded: pub [Field; 2],
-    safe_block_height: pub u64,
-    block_height_delta: pub u64,
-    proposed_merkle_root_encoded: [Field; 2]
+  confirmation_block_hash_encoded: pub [Field; 2],
+  proposed_block_hash_encoded: pub [Field; 2],
+  safe_block_hash_encoded: pub [Field; 2],
+  retarget_block_hash_encoded: pub [Field; 2],
+  safe_block_height: pub u64,
+  block_height_delta: pub u64,
+  confirmation_block_height_delta: pub u64,
     */
     let block_pub_input: [Field] = &[
         confirmation_block_hash_encoded[0],

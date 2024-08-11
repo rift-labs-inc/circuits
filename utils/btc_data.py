@@ -206,7 +206,7 @@ def get_rpc(mainnet: bool = True):
 
 # Uses an bitcoin rpc client to fetch block data, close to prod impl
 
-async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, txid: Optional[str] = None, mainnet: bool = True) -> RiftBitcoinData:
+async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, confirmation_block_delta: int = 5, txid: Optional[str] = None, mainnet: bool = True) -> RiftBitcoinData:
     SelectParams("mainnet" if mainnet else "testnet")
     rpc_url = get_rpc(mainnet)
     retarget_height = proposed_block_height - (proposed_block_height % 2016)
@@ -255,7 +255,7 @@ async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, 
         txn_data_no_segwit_hex = None
 
     inner_blocks = await fetch_blocks(safe_block_height + 1, num_inner_blocks - 1)
-    confirmation_blocks = await fetch_blocks(proposed_block_height + 1, CONFIRMATION_BLOCK_DELTA)
+    confirmation_blocks = await fetch_blocks(proposed_block_height + 1, confirmation_block_delta)
 
     return RiftBitcoinData(
         txn_data_no_segwit_hex=txn_data_no_segwit_hex,

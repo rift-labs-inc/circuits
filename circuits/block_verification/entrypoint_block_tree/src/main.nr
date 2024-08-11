@@ -1,6 +1,10 @@
 use dep::std;
 use dep::block_lib::{build_tree_circuit_public_input, build_pair_public_input};
+use dep::block_lib::bitcoin::{Block, build_block_hash};
 use dep::block_lib::vk_hashes::{PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH, BLOCK_TREE_CIRCUIT_KEY_HASHES};
+use dep::rift_lib::byte_lib;
+
+global MIN_CONFIRMATION_BLOCK_HEIGHT_DELTA: u64 = 5;
 
 pub fn log2_floor(mut v: u32) -> u32 {
     let MULTIPLY_DE_BRUIJN_BIT_POSITION: [u8; 32] = [
@@ -16,26 +20,21 @@ pub fn log2_floor(mut v: u32) -> u32 {
     MULTIPLY_DE_BRUIJN_BIT_POSITION[((std::wrapping_mul(v, 0x07C4ACDD)) >> 27)] as u32
 }
 
-fn get_block_tree_height(block_height_delta: u32) -> u32 {
-  log2_floor(block_height_delta)
-}
-
-// Verifies all the info necessary
-fn main(
-  confirmation_block_hash_encoded: pub [Field; 2],
-  proposed_block_hash_encoded: pub [Field; 2],
-  safe_block_hash_encoded: pub [Field; 2],
-  retarget_block_hash_encoded: pub [Field; 2],
-  safe_block_height: pub u64,
-  block_height_delta: pub u64,
-  proposed_merkle_root_encoded: [Field; 2],
-  tree_circuit_verification_key: [Field; 114],
-  tree_circuit_proof: [Field; 93],
+fn prove_blocks(
+  first_block_height: u64,
+  last_block_height: u64,
+  first_block_hash: [u8; 32],
+  last_block_hash: [u8; 32],
+  last_retarget_block_hash: [u8; 32],
+  last_retarget_block_height: u64,
+  proof: [Field; 93],
+  verification_key: [Field; 114],
   ) {
-  let circuit_selector = log2_floor((first_block_height-last_block_height) as u32);
+
+  let circuit_selector = log2_floor((last_block_height-first_block_height) as u32);
   assert(circuit_selector < BLOCK_TREE_CIRCUIT_KEY_HASHES.len() as u32);
 
-  // if block delta is 1, then we are verifying a single pair of blocks (safe -> proposed)
+  // if block delta is 1, then we are verifying a single pair of blocks (safe height + 1 == proposed height)
   let mut public_input: [Field] = [];
   let mut verification_key_hash: Field = 0;
   if circuit_selector != 0 {
@@ -48,7 +47,10 @@ fn main(
       false,
       false,
       last_retarget_block_hash,
-      last_retarget_block_height
+      last_retarget_block_height,
+      [0; 16] // TODO: This is a dummy value, need to pass actual aggregation object, and also
+      // add another conditional to verify this is not an R1 tree at which point we should not pass 
+      // this value
     );
   } else {
     verification_key_hash = PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH;
@@ -62,12 +64,76 @@ fn main(
     );
   }
   std::verify_proof(
-    tree_circuit_verification_key.as_slice(),
-    tree_circuit_proof.as_slice(),
+    verification_key.as_slice(),
+    proof.as_slice(),
     public_input,
     verification_key_hash
   );
 
+}
+
+/*
+Verifies:
+ - safe -> proposed heights and hashes have chain of blocks between them
+ - proposed -> confirmation heights and hashes have chain of blocks between them
+ - merkle root of proposed block aligns with proposed block hash
+
+Enforced at contract level:
+* if proposed block height is greater than latest safe, then default +5 confirmation blocks will work
+* if proposed block height is less than latest safe, then there needs to be n confirmation blocks
+  that exist between the proposed and latest/next safe block
+*/
+#[recursive]
+fn main(
+  confirmation_block_hash_encoded: pub [Field; 2],
+  proposed_block_hash_encoded: pub [Field; 2],
+  safe_block_hash_encoded: pub [Field; 2],
+  retarget_block_hash_encoded: pub [Field; 2],
+  safe_block_height: pub u64,
+  block_height_delta: pub u64,
+  confirmation_block_height_delta: pub u64,
+  proposed_merkle_root_encoded: pub [Field; 2],
+  proposed_block: Block,
+  safe_proposed_verification_key: [Field; 114],
+  safe_proposed_proof: [Field; 93],
+  proposed_confirmation_verification_key: [Field; 114],
+  proposed_confirmation_proof: [Field; 93],
+  ) {
+  assert(confirmation_block_height_delta >= MIN_CONFIRMATION_BLOCK_HEIGHT_DELTA);
+  
+  let confirmation_block_hash = byte_lib::decode_field_encoded_hash(confirmation_block_hash_encoded);
+  let proposed_block_hash = byte_lib::decode_field_encoded_hash(proposed_block_hash_encoded);
+  let safe_block_hash = byte_lib::decode_field_encoded_hash(safe_block_hash_encoded);
+  let retarget_block_hash = byte_lib::decode_field_encoded_hash(retarget_block_hash_encoded); 
+  let proposed_merkle_root = byte_lib::decode_field_encoded_hash(proposed_merkle_root_encoded);
+
+  // Verify a chain exists between safe block -> proposed block
+  prove_blocks(
+    safe_block_height,
+    safe_block_height + block_height_delta,
+    safe_block_hash,
+    proposed_block_hash,
+    retarget_block_hash,
+    safe_block_height + block_height_delta,
+    safe_proposed_proof,
+    safe_proposed_verification_key
+  );
+
+  // Verify a chain exists between proposed block -> confirmation block
+  prove_blocks(
+    safe_block_height + block_height_delta,
+    safe_block_height + block_height_delta + confirmation_block_height_delta,
+    proposed_block_hash,
+    confirmation_block_hash,
+    retarget_block_hash,
+    safe_block_height + block_height_delta,
+    proposed_confirmation_proof,
+    proposed_confirmation_verification_key
+  );
+  
+  // Verify proposed block merkle root
+  assert(proposed_block.merkle_root == proposed_merkle_root);
+  assert(build_block_hash(proposed_block) == proposed_block_hash);
 }
 
 

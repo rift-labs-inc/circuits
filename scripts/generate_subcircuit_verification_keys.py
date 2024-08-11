@@ -125,7 +125,7 @@ async def main():
     BLOCK_TREE_VKEY_HASHES_FILE = "circuits/block_verification/block_lib/src/vk_hashes.nr"
     GIGA_RECURSIVE_VKEY_HASHES_FILE = "circuits/giga/src/recursive_circuit_hashes.nr"
     GENERATED_CIRCUITS_DIR = "generated_block_tree_circuits/"
-    BLOCK_TREE_HEIGHT = 20
+    BLOCK_TREE_HEIGHT = 3 # TODO: change to 20
     print("Generating pair verification key hash...")
     pair_vk_hash = await get_pair_circuit_verification_hash()
     async with aiofiles.open(BLOCK_TREE_VKEY_HASHES_FILE, "w+") as f:
