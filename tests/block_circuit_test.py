@@ -91,6 +91,25 @@ async def create_balanced_2_level_tree():
     print("Height", f"R{proof_data.height}")
     print("Balance 2 Level Tree proof built")
 
+async def create_imbalanced_3_level_tree():
+    print("Create Imbalanced 3 Level Tree...")
+    proposed_height = 848534
+    safe_delta = 5
+    print(f"{safe_delta} New Blocks")
+    block_data = await get_rift_btc_data(
+        proposed_block_height=proposed_height,
+        safe_block_height=proposed_height - safe_delta,
+    )
+    blocks = [block_data.safe_block_header, *block_data.inner_block_headers, block_data.proposed_block_header]
+
+    proof_data = await build_block_proof_and_input(
+        blocks=blocks,
+        last_retarget_block=block_data.retarget_block_header,
+        verify=True
+    )
+    print("Height", f"R{proof_data.height}")
+    print("Imbalanced 3 Level Tree proof built")
+
 async def prove_1_block_entrypoint():
     print("Prove [1] Block Entrypoint...")
     proposed_height = 848534
@@ -114,10 +133,11 @@ async def prove_1_block_entrypoint():
 
 
 def main():
-    asyncio.run(test_single_pair())
+    #asyncio.run(test_single_pair())
     #asyncio.run(create_simple_1_level_tree())
     #asyncio.run(create_imbalanced_2_level_tree())
     #asyncio.run(create_balanced_2_level_tree())
+    asyncio.run(create_imbalanced_3_level_tree())
     #asyncio.run(prove_1_block_entrypoint())
 
 

@@ -13,8 +13,7 @@ import shutil
 from pydantic import BaseModel
 import aiofiles
 from eth_abi.abi import encode as eth_abi_encode
-
-
+from cache import AsyncLRU
 
 from .noir_lib import (
     create_solidity_proof,
@@ -838,12 +837,13 @@ async def build_block_tree_circuit_prover_toml(
 
     return witness_bytes
 
-@cache
-async def get_base_tree_circuit_verification_hash(compilation_dir: str):
+@AsyncLRU(maxsize=None) #type:ignore
+async def get_base_tree_circuit_verification_hash():
+    circuit_path: str = "circuits/block_verification/base_block_tree"
     vk = tempfile.NamedTemporaryFile()
-    await compile_project(compilation_dir)
-    await build_raw_verification_key(vk.name, compilation_dir, BB)
-    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
+    await compile_project(circuit_path)
+    await build_raw_verification_key(vk.name, circuit_path, BB)
+    vk_data = await extract_vk_as_fields(vk.name, circuit_path, BB)
     return vk_data[0]
 
 async def build_block_tree_base_proof_and_input(
@@ -914,12 +914,16 @@ async def build_block_tree_base_proof_and_input(
     )
 
 
-async def height_to_recursive_tree_vk_hash(height: int, circuit_path: str = "circuits/block_verification/base_block_tree"):
-    base_tree_vk_hash = await get_base_tree_circuit_verification_hash(circuit_path)
+async def height_to_recursive_tree_vk_hash(height: int):
+    print("T5")
+    base_tree_vk_hash = await get_base_tree_circuit_verification_hash()
+    print("T6")
     if height == 2:
         print("Base Tree VK Hash:", base_tree_vk_hash)
         return base_tree_vk_hash
+    print("Fetching recursive tree vk hash...")
     async with aiofiles.open(f"generated_block_tree_circuits/block_tree_height_{height}.json") as f:
+        print("Reading file")
         tree_data = json.loads(await f.read())
         return tree_data["vk_hash"]
 
@@ -943,10 +947,15 @@ async def build_block_tree_proof_and_input(
     # height 0 is technically pair circuits
     # height 1 is custom to handle pair circuits directly
 
+    print("Building block tree proof...")
     temp_dir = tempfile.TemporaryDirectory()
+    print("T1")
     shutil.copytree("circuits", os.path.join(temp_dir.name, "circuits"))
+    print("T2")
     circuit_path = os.path.join(temp_dir.name, circuit_path)
+    print("T3")
     os.makedirs(circuit_path, exist_ok=True)
+    print("T4")
     child_vk_hash = await height_to_recursive_tree_vk_hash(height)
     print("Child VK Hash:", child_vk_hash)
 
@@ -1204,7 +1213,6 @@ async def build_block_proof_and_input(
         for i in range(0, len(current_pair_proofs), 2):
             iters += 1
             # Smoke check
-            # TODO: This link logic needs to be validated, pretty sure it's wrong
             assert current_pair_proofs[i].last_block == current_pair_proofs[i+1].first_block
             coro = build_block_tree_proof_and_input(
                 first_block=current_pair_proofs[i].first_block,
