@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.rift_lib import BB
 
 from utils.noir_lib import (
+    ensure_cache_is_current,
     initialize_noir_project_folder,
     compile_project,
     create_witness,
@@ -43,17 +44,17 @@ async def create_temp_dir(dir: str):
 async def get_lp_hash_verification_vk_hash():
     compilation_dir = "circuits/lp_hash_verification"
     vk = tempfile.NamedTemporaryFile()
-    await compile_project(compilation_dir)
-    await build_raw_verification_key(vk.name, compilation_dir, BB)
-    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
+    await compile_project(compilation_dir, no_cache=True)
+    await build_raw_verification_key(vk.name, compilation_dir, BB, no_cache=True)
+    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
     return vk_data[0]
 
 async def get_payment_verification_vk_hash():
     compilation_dir = "circuits/payment_verification"
     vk = tempfile.NamedTemporaryFile()
-    await compile_project(compilation_dir)
-    await build_raw_verification_key(vk.name, compilation_dir, BB)
-    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
+    await compile_project(compilation_dir, no_cache=True)
+    await build_raw_verification_key(vk.name, compilation_dir, BB, no_cache=True)
+    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
     return vk_data[0]
 
 
@@ -79,15 +80,20 @@ async def gen_block_tree_circuit(base_tree_circuit_hash_hex: str, n: int = 20) -
 
         async with aiofiles.open(os.path.join(compilation_dir, "src/main.nr"), "w+") as f:
             await f.write(subcircuit_source)
-        circuit_binary = await compile_project(compilation_dir, return_binary=True)
+        circuit_binary = await compile_project(compilation_dir, return_binary=True, no_cache=True)
         assert circuit_binary is not None
         vk = tempfile.NamedTemporaryFile()
-        await build_raw_verification_key(vk.name, compilation_dir, BB)
-        vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
+        await build_raw_verification_key(vk.name, compilation_dir, BB, no_cache=True)
+        vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
+        
+        async with aiofiles.open(vk.name, "rb") as f:
+            vk_bytes = await f.read()
+
         tree_height_to_circuit_data[i+1] = {
             "circuit": circuit_binary.hex(),
             "vk": vk_data[1:],
-            "vk_hash": vk_data[0]
+            "vk_hash": vk_data[0],
+            "vk_bytes": vk_bytes.hex()
         }
         circuit_hash_list.append(vk_data[0])
     return circuit_hash_list, tree_height_to_circuit_data
@@ -95,25 +101,25 @@ async def gen_block_tree_circuit(base_tree_circuit_hash_hex: str, n: int = 20) -
 async def get_base_tree_circuit_verification_hash():
     compilation_dir = "circuits/block_verification/base_block_tree"
     vk = tempfile.NamedTemporaryFile()
-    await compile_project(compilation_dir)
-    await build_raw_verification_key(vk.name, compilation_dir, BB)
-    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
+    await compile_project(compilation_dir, no_cache=True)
+    await build_raw_verification_key(vk.name, compilation_dir, BB, no_cache=True)
+    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
     return vk_data[0]
 
 async def get_pair_circuit_verification_hash():
     compilation_dir = "circuits/block_verification/pair_block_verification"
     vk = tempfile.NamedTemporaryFile()
-    await compile_project(compilation_dir)
-    await build_raw_verification_key(vk.name, compilation_dir, BB)
-    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
+    await compile_project(compilation_dir, no_cache=True)
+    await build_raw_verification_key(vk.name, compilation_dir, BB, no_cache=True)
+    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
     return vk_data[0]
 
 async def get_entrypoint_block_tree_vk_hash():
     compilation_dir = "circuits/block_verification/entrypoint_block_tree"
     vk = tempfile.NamedTemporaryFile()
-    await compile_project(compilation_dir)
-    await build_raw_verification_key(vk.name, compilation_dir, BB)
-    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB)
+    await compile_project(compilation_dir, no_cache=True)
+    await build_raw_verification_key(vk.name, compilation_dir, BB, no_cache=True)
+    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
     return vk_data[0]
 
 async def print_pair_circuit_verification_hash():
@@ -125,7 +131,7 @@ async def main():
     BLOCK_TREE_VKEY_HASHES_FILE = "circuits/block_verification/block_lib/src/vk_hashes.nr"
     GIGA_RECURSIVE_VKEY_HASHES_FILE = "circuits/giga/src/recursive_circuit_hashes.nr"
     GENERATED_CIRCUITS_DIR = "generated_block_tree_circuits/"
-    BLOCK_TREE_HEIGHT = 3 # TODO: change to 20
+    BLOCK_TREE_HEIGHT = 11 
     print("Generating pair verification key hash...")
     pair_vk_hash = await get_pair_circuit_verification_hash()
     async with aiofiles.open(BLOCK_TREE_VKEY_HASHES_FILE, "w+") as f:
@@ -147,6 +153,7 @@ async def main():
         async with aiofiles.open(os.path.join(GENERATED_CIRCUITS_DIR, f"block_tree_height_{height}.json"), "w+") as f:
             await f.write(json.dumps(data, indent=2))
 
+
     print("Generating entrypoint block tree verification key hash...")
     entrypoint_vk_hash = await get_entrypoint_block_tree_vk_hash()
     print("Generating lp hash verification key hash...")
@@ -159,6 +166,9 @@ async def main():
     global block_verification_circuit_key_hash: Field = {entrypoint_vk_hash};
     global lp_hash_verification_key_hash: Field = {lp_hash};"""
     ))
+
+    # this can only happen after everything is generated 
+    await ensure_cache_is_current() 
     print("Done!")
 
     

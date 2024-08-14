@@ -31,13 +31,11 @@ pub fn build_tree_circuit_public_input(
   last_block_hash: [u8; 32],
   first_block_height: u64,
 	last_block_height: u64,
-	first_is_buffer: bool,
-	last_is_buffer: bool,
   last_retarget_block_hash: [u8; 32],
   last_retarget_block_height: u64,
   subcircuit_aggregation_object: [Field; 16],
-)-> [Field; 117] {
-  let mut public_input = [0 as Field; 117];
+)-> [Field; 115] {
+  let mut public_input = [0 as Field; 115];
 
   for i in 0..32 {
     public_input[i] = first_block_hash[i] as Field;
@@ -45,15 +43,13 @@ pub fn build_tree_circuit_public_input(
   }
   public_input[64] = first_block_height as Field;
   public_input[65] = last_block_height as Field;
-  public_input[66] = first_is_buffer as Field;
-  public_input[67] = last_is_buffer as Field;
   for i in 0..32 {
-	public_input[i+68] = last_retarget_block_hash[i] as Field;
+	public_input[i+66] = last_retarget_block_hash[i] as Field;
   }
-  public_input[100] = last_retarget_block_height as Field;
-
+  public_input[98] = last_retarget_block_height as Field;
   for i in 0..16 {
-    public_input[i+101] = subcircuit_aggregation_object[i];
+    public_input[i+99] = subcircuit_aggregation_object[i];
   }
+
   public_input
 }

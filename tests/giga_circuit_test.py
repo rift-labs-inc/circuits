@@ -7,6 +7,7 @@ import aiofiles
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from utils.noir_lib import ensure_cache_is_current
 from utils.rift_lib import (
     Block,
     build_giga_circuit_proof_and_input,
@@ -35,6 +36,7 @@ async def test_historical_simple_payment_mainnet():
     
 
 def main():
+    asyncio.run(ensure_cache_is_current())
     asyncio.run(test_historical_simple_payment_mainnet())
 
 

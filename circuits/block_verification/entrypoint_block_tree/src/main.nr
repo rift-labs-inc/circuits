@@ -17,6 +17,7 @@ pub fn log2_floor(mut v: u32) -> u32 {
     v |= v >> 8;
     v |= v >> 16;
 
+
     MULTIPLY_DE_BRUIJN_BIT_POSITION[((std::wrapping_mul(v, 0x07C4ACDD)) >> 27)] as u32
 }
 
@@ -27,8 +28,9 @@ fn prove_blocks(
   last_block_hash: [u8; 32],
   last_retarget_block_hash: [u8; 32],
   last_retarget_block_height: u64,
+  block_tree_aggregation_object: [Field; 16],
   proof: [Field; 93],
-  verification_key: [Field; 114],
+  verification_key: [Field; 114]
   ) {
 
   let circuit_selector = log2_floor((last_block_height-first_block_height) as u32);
@@ -37,22 +39,7 @@ fn prove_blocks(
   // if block delta is 1, then we are verifying a single pair of blocks (safe height + 1 == proposed height)
   let mut public_input: [Field] = [];
   let mut verification_key_hash: Field = 0;
-  if circuit_selector != 0 {
-    verification_key_hash = BLOCK_TREE_CIRCUIT_KEY_HASHES[circuit_selector-1]; 
-    public_input = build_tree_circuit_public_input(
-      first_block_hash,
-      last_block_hash,
-      first_block_height,
-      last_block_height,
-      false,
-      false,
-      last_retarget_block_hash,
-      last_retarget_block_height,
-      [0; 16] // TODO: This is a dummy value, need to pass actual aggregation object, and also
-      // add another conditional to verify this is not an R1 tree at which point we should not pass 
-      // this value
-    );
-  } else {
+  if circuit_selector == 0 {
     verification_key_hash = PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH;
     public_input = build_pair_public_input(
       first_block_hash,
@@ -62,6 +49,32 @@ fn prove_blocks(
       last_retarget_block_height,
       false
     );
+  } else if circuit_selector == 1 {
+    verification_key_hash = BLOCK_TREE_CIRCUIT_KEY_HASHES[circuit_selector-1]; 
+    public_input = build_tree_circuit_public_input(
+      first_block_hash,
+      last_block_hash,
+      first_block_height,
+      last_block_height,
+      last_retarget_block_hash,
+      last_retarget_block_height,
+      block_tree_aggregation_object // TODO: This is a dummy value, need to pass actual aggregation object, and also
+      // add another conditional to verify this is not an R1 tree at which point we should not pass 
+      // this value
+    );
+  } else if circuit_selector > 1 {
+    verification_key_hash = BLOCK_TREE_CIRCUIT_KEY_HASHES[circuit_selector-1]; 
+    public_input = build_tree_circuit_public_input(
+      first_block_hash,
+      last_block_hash,
+      first_block_height,
+      last_block_height,
+      last_retarget_block_hash,
+      last_retarget_block_height,
+      block_tree_aggregation_object
+    );
+  } else {
+    
   }
   std::verify_proof(
     verification_key.as_slice(),

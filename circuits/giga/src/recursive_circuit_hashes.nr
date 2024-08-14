@@ -1,3 +1,3 @@
 global payment_verification_circuit_key_hash: Field = 0x1a51d1e3ae1b631f221d08964e1ac631415ab29126a31de4c611707d4bd0594c;
-    global block_verification_circuit_key_hash: Field = 0x26df99786cd35163aa077483200f11cc160d41da98754a3f8e540d78ba8c4fbd;
+    global block_verification_circuit_key_hash: Field = 0x0e5c917953376033872623da2361a27e4ef2f0fa5276d1f59ef9f4952f1e59b5;
     global lp_hash_verification_key_hash: Field = 0x1d0b2042f9dd964d57e0476a0c17afae49a50e15046b4a598a27c7f8e2c93969;

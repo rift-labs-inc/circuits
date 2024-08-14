@@ -5,6 +5,7 @@ import hashlib
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from utils.noir_lib import ensure_cache_is_current
 from utils.rift_lib import (
     build_recursive_payment_proof_and_input,
     LiquidityProvider
@@ -107,6 +108,7 @@ async def test_single_theo_payment():
     )
 
 def main():
+    asyncio.run(ensure_cache_is_current())
     asyncio.run(test_single_theo_payment())
 
 if __name__ == "__main__":
