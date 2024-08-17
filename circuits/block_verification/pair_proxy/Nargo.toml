@@ -1,0 +1,8 @@
+[package]
+name = "pair_proxy"
+type = "bin"
+authors = [""]
+compiler_version = ">=0.30.0"
+
+[dependencies]
+block_lib = { path = "../block_lib" }

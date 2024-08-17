@@ -1,8 +1,0 @@
-[package]
-name = "block_verification"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.23.0"
-
-[dependencies]
-rift_lib = { path = "../lib" }

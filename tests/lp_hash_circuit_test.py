@@ -4,6 +4,7 @@ import asyncio
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from utils.noir_lib import ensure_cache_is_current
 from utils.rift_lib import (
     build_recursive_lp_hash_proof_and_input,
     LiquidityProvider,
@@ -37,6 +38,7 @@ async def test_multiple_lps():
 
 
 def main():
+    asyncio.run(ensure_cache_is_current())
     asyncio.run(test_single_lp())
     asyncio.run(test_multiple_lps())
 

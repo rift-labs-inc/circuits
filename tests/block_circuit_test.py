@@ -1,52 +1,110 @@
 import os
+import time
 import sys
 import asyncio
+import tempfile
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils.rift_lib import build_recursive_block_proof_and_input
-from utils.btc_data import fetch_initial_block_input_mainnet_public, get_rift_btc_data
+from utils.noir_lib import build_raw_verification_key, compile_project, ensure_cache_is_current, extract_vk_as_fields
+from utils.rift_lib import BB, Block, build_block_entrypoint_proof_and_input, build_block_pair_proof_input, build_block_proof_and_input
+from utils.btc_data import get_rift_btc_data, fetch_block_from_height
 
-async def test_multiple_blocks():
-    safe_block_height = 848524
-    proposed_block_height = 848534
-    retarget_height = 846720
-    print("Test multiple blocks...")
-    proposed_block, safe_block, retarget_block, inner_blocks, confirmation_blocks = await fetch_initial_block_input_mainnet_public(
-        proposed_block_height,
-        safe_block_height,
-        retarget_height
+
+async def build_and_verify_tree(proposed_height: int, safe_delta: int, test_name: str):
+    print(f"Creating {test_name}...")
+    print(f"{safe_delta} New Blocks")
+    assert proposed_height - (proposed_height % 2016) == (proposed_height - safe_delta) - ((proposed_height - safe_delta) % 2016), "Safe + Proposed Retarget heights do not match"
+
+    block_data = await get_rift_btc_data(
+        proposed_block_height=proposed_height,
+        safe_block_height=proposed_height - safe_delta,
     )
-    print("Block height delta:", proposed_block.height - safe_block.height)
-    await build_recursive_block_proof_and_input(
-        proposed_block,
-        safe_block,
-        retarget_block,
-        inner_blocks,
-        confirmation_blocks
+    
+
+
+    blocks = [block_data.safe_block_header, *block_data.inner_block_headers, block_data.proposed_block_header]
+
+    proof_start = time.time()
+    proof_data = await build_block_proof_and_input(
+        blocks=blocks,
+        last_retarget_block=block_data.retarget_block_header,
+        verify=True
+    )
+    proof_time = time.time() - proof_start
+    
+    print("Height", f"R{proof_data.height}")
+    print(f"{test_name} proof built in {proof_time:.2f} seconds")
+
+async def test_single_pair():
+    proposed_height = 848534
+    await build_block_pair_proof_input(
+        block_1=(await get_rift_btc_data(proposed_block_height=proposed_height, safe_block_height=proposed_height - 1)).safe_block_header,
+        block_2=(await get_rift_btc_data(proposed_block_height=proposed_height, safe_block_height=proposed_height - 1)).proposed_block_header,
+        last_retarget_block=(await get_rift_btc_data(proposed_block_height=proposed_height, safe_block_height=proposed_height - 1)).retarget_block_header,
+        verify=True
+    )
+    print("Single pair proof built")
+
+
+async def run_exhaustive_test():
+    target_delta = 90
+    for i in range(1, target_delta + 1):
+        await build_and_verify_tree(847000, i, f"{i} Block Delta Tree")
+
+
+async def test_specific_tree(delta: int):
+    await build_and_verify_tree(846000, delta, f"{delta} Block Delta Tree")
+
+
+async def test_entrypoint_proof():
+    safe_delta = 30
+    proposed_height = 848500
+    block_data = await get_rift_btc_data(
+        proposed_block_height=proposed_height,
+        safe_block_height=proposed_height - safe_delta,
     )
 
-async def test_multiple_testnet_blocks_real_rpc():
-    print("Test multiple testnet blocks...")
-    rift_bitcoin_data = await get_rift_btc_data(
-        proposed_block_height=2867344,
-        safe_block_height=2867340,
-        txid="2b50e917cef06971ef9a4143367e38e320ca326bba593f1f5b8714bf0e657a38",
-        mainnet=False
-    )
-    await build_recursive_block_proof_and_input(
-        rift_bitcoin_data.proposed_block_header,
-        rift_bitcoin_data.safe_block_header,
-        rift_bitcoin_data.retarget_block_header,
-        rift_bitcoin_data.inner_block_headers,
-        rift_bitcoin_data.confirmation_block_headers
+    blocks = [
+        block_data.safe_block_header,
+        *block_data.inner_block_headers,
+        block_data.proposed_block_header,
+        *block_data.confirmation_block_headers,
+    ]
+
+    await build_block_entrypoint_proof_and_input(
+        blocks=blocks,
+        last_retarget_block=block_data.retarget_block_header,
+        safe_block_height=block_data.safe_block_header.height,
+        safe_block_height_delta=safe_delta,
+        verify=True
     )
 
+    print("Entrypoint proof built")
+
+async def run_tests():
+    await test_single_pair()
+
+    tree_tests = [
+        (848534, 1),
+        (848534, 2),
+        (848534, 3),
+        (848534, 4),
+        (848534, 5),
+        (847000, 8),
+        (847000, 17),
+        (847000, 33),
+        (847000, 90),
+    ]
+    
+    for proposed_height, safe_delta in tree_tests:
+        await build_and_verify_tree(proposed_height, safe_delta, f"{safe_delta} Block Delta Tree")
+
+    await test_entrypoint_proof()
 
 
 def main():
-    asyncio.run(test_multiple_blocks())
-    asyncio.run(test_multiple_testnet_blocks_real_rpc())
-
+    asyncio.run(ensure_cache_is_current())
+    asyncio.run(run_tests())
 
 if __name__ == "__main__":
     main()

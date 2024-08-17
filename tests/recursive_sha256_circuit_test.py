@@ -14,6 +14,7 @@ import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from utils.noir_lib import ensure_cache_is_current
 from utils.rift_lib import (
     build_recursive_sha256_proof_and_input
 )
@@ -40,6 +41,7 @@ async def test_recursive_sha_too_big():
 
 
 def main():
+    asyncio.run(ensure_cache_is_current())
     asyncio.run(test_recursive_sha())
     asyncio.run(test_recursive_sha_too_big())
 
