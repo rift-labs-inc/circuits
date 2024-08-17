@@ -53,3 +53,27 @@ pub fn build_tree_circuit_public_input(
 
   public_input
 }
+
+pub fn build_base_tree_circuit_public_input(
+  first_block_hash:  [u8; 32],
+  last_block_hash: [u8; 32],
+  first_block_height: u64,
+	last_block_height: u64,
+  last_retarget_block_hash: [u8; 32],
+  last_retarget_block_height: u64,
+)-> [Field; 99] {
+  let mut public_input = [0 as Field; 99];
+
+  for i in 0..32 {
+    public_input[i] = first_block_hash[i] as Field;
+    public_input[i+32] = last_block_hash[i] as Field;
+  }
+  public_input[64] = first_block_height as Field;
+  public_input[65] = last_block_height as Field;
+  for i in 0..32 {
+	public_input[i+66] = last_retarget_block_hash[i] as Field;
+  }
+  public_input[98] = last_retarget_block_height as Field;
+
+  public_input
+}

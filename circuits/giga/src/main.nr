@@ -26,7 +26,9 @@ fn main(
     safe_block_hash_encoded: pub [Field; 2],
     retarget_block_hash_encoded: pub [Field; 2],
     safe_block_height: pub u64,
-    block_height_delta: pub u64,
+    safe_block_height_delta: pub u64,
+    confirmation_block_height_delta: pub u64,
+    retarget_block_height: pub u64,
     // Proof Data
     lp_hash_verification_key: [Field; 114],
     lp_hash_proof: [Field; 93],
@@ -36,7 +38,8 @@ fn main(
     payment_verification_key: [Field; 114],
     payment_proof: [Field; 93],
     block_verification_key: [Field; 114],
-    block_proof: [Field; 93]
+    block_proof: [Field; 93],
+    block_recursive_aggregation_object: [Field; 16]
 ) {
     // Transaction Hash Verification
     let txn_hash = byte_lib::decode_field_encoded_hash(txn_hash_encoded);
@@ -98,15 +101,6 @@ fn main(
     );
 
     // Block Verification
-    /*
-  confirmation_block_hash_encoded: pub [Field; 2],
-  proposed_block_hash_encoded: pub [Field; 2],
-  safe_block_hash_encoded: pub [Field; 2],
-  retarget_block_hash_encoded: pub [Field; 2],
-  safe_block_height: pub u64,
-  block_height_delta: pub u64,
-  confirmation_block_height_delta: pub u64,
-    */
     let block_pub_input: [Field] = &[
         confirmation_block_hash_encoded[0],
         confirmation_block_hash_encoded[1],
@@ -117,10 +111,30 @@ fn main(
         retarget_block_hash_encoded[0],
         retarget_block_hash_encoded[1],
         safe_block_height as Field,
-        block_height_delta as Field,
+        safe_block_height_delta as Field,
+        confirmation_block_height_delta as Field,
         proposed_merkle_root_encoded[0],
-        proposed_merkle_root_encoded[1]
+        proposed_merkle_root_encoded[1],
+        retarget_block_height as Field,
+        block_recursive_aggregation_object[0],
+        block_recursive_aggregation_object[1],
+        block_recursive_aggregation_object[2],
+        block_recursive_aggregation_object[3],
+        block_recursive_aggregation_object[4],
+        block_recursive_aggregation_object[5],
+        block_recursive_aggregation_object[6],
+        block_recursive_aggregation_object[7],
+        block_recursive_aggregation_object[8],
+        block_recursive_aggregation_object[9],
+        block_recursive_aggregation_object[10],
+        block_recursive_aggregation_object[11],
+        block_recursive_aggregation_object[12],
+        block_recursive_aggregation_object[13],
+        block_recursive_aggregation_object[14],
+        block_recursive_aggregation_object[15],
     ];
+    println("Block Pub Input:");
+    println(block_pub_input);
 
     std::verify_proof(
         block_verification_key.as_slice(),

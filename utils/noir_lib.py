@@ -20,6 +20,7 @@ class CircuitCache(BaseModel):
     vk_bytes: str
 
 # UTILS
+DISABLE_CACHE = False 
 
 async def run_command(command: str, cwd: str, strict_failure = True) -> bytes:
     process = await asyncio.create_subprocess_shell(
@@ -91,7 +92,7 @@ async def initialize_noir_project_folder(
 
 async def compile_project(compilation_dir: str, return_binary = False, no_cache = False):
     try:
-        if not no_cache:
+        if not no_cache and not DISABLE_CACHE:
             circuit_data = await get_cached_circuit_data(compilation_dir)
             circuit_bytes = bytes.fromhex(normalize_hex_str(circuit_data.circuit))
             async with aiofiles.open(os.path.join(compilation_dir, "target/acir.gz"), "wb") as file:
@@ -107,7 +108,7 @@ async def compile_project(compilation_dir: str, return_binary = False, no_cache 
         async with aiofiles.open(os.path.join(compilation_dir, "target/acir.gz"), "rb") as file:
             return await file.read()
 
-async def create_witness(prover_toml_string: str, compilation_dir: str, return_output: bool = False, show_output = False):
+async def create_witness(prover_toml_string: str, compilation_dir: str, return_output: bool = False):
     async with aiofiles.open(
         os.path.join(compilation_dir, "Prover.toml"), "w+"
     ) as file:
@@ -115,8 +116,6 @@ async def create_witness(prover_toml_string: str, compilation_dir: str, return_o
 
     command = "nargo execute witness"
     stdout = await run_command(command, compilation_dir, strict_failure=False)
-    if show_output:
-        pass
     if return_output:
         return stdout.decode()
 
@@ -136,7 +135,7 @@ async def build_raw_verification_key(
     vk_file: str,  compilation_dir: str, bb_binary: str, no_cache = False 
 ):
     try:
-        if not no_cache:
+        if not no_cache and not DISABLE_CACHE:
             circuit_data = await get_cached_circuit_data(compilation_dir)
             async with aiofiles.open(os.path.join(compilation_dir, vk_file), "wb") as f:
                 await f.write(bytes.fromhex(normalize_hex_str(circuit_data.vk_bytes)))
@@ -149,7 +148,7 @@ async def build_raw_verification_key(
 
 async def extract_vk_as_fields(vk_file: str, compilation_dir: str, bb_binary: str, no_cache = False) -> list:
     try:
-        if not no_cache:
+        if not no_cache and not DISABLE_CACHE:
             circuit_data = await get_cached_circuit_data(compilation_dir)
             return [circuit_data.vk_hash] + circuit_data.vk
     except Exception:
@@ -258,6 +257,7 @@ async def ensure_cache_is_current(
         "circuits/block_verification/base_block_tree",
         "circuits/block_verification/entrypoint_block_tree",
         "circuits/block_verification/pair_block_verification",
+        "circuits/block_verification/pair_proxy",
         "circuits/giga",
         "circuits/lp_hash_verification",
         "circuits/payment_verification"

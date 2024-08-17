@@ -55,23 +55,56 @@ async def run_exhaustive_test():
 async def test_specific_tree(delta: int):
     await build_and_verify_tree(846000, delta, f"{delta} Block Delta Tree")
 
+
+async def test_entrypoint_proof():
+    safe_delta = 30
+    proposed_height = 848500
+    block_data = await get_rift_btc_data(
+        proposed_block_height=proposed_height,
+        safe_block_height=proposed_height - safe_delta,
+    )
+
+    blocks = [
+        block_data.safe_block_header,
+        *block_data.inner_block_headers,
+        block_data.proposed_block_header,
+        *block_data.confirmation_block_headers,
+    ]
+
+    await build_block_entrypoint_proof_and_input(
+        blocks=blocks,
+        last_retarget_block=block_data.retarget_block_header,
+        safe_block_height=block_data.safe_block_header.height,
+        safe_block_height_delta=safe_delta,
+        verify=True
+    )
+
+    print("Entrypoint proof built")
+
 async def run_tests():
-    tests = [
+    await test_single_pair()
+
+    tree_tests = [
+        (848534, 1),
         (848534, 2),
         (848534, 3),
         (848534, 4),
         (848534, 5),
+        (847000, 8),
+        (847000, 17),
+        (847000, 33),
         (847000, 90),
     ]
     
-    for proposed_height, safe_delta in tests:
+    for proposed_height, safe_delta in tree_tests:
         await build_and_verify_tree(proposed_height, safe_delta, f"{safe_delta} Block Delta Tree")
 
-    #await test_single_pair()
+    await test_entrypoint_proof()
+
 
 def main():
     asyncio.run(ensure_cache_is_current())
-    asyncio.run(test_specific_tree(400))
+    asyncio.run(run_tests())
 
 if __name__ == "__main__":
     main()

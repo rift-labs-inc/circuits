@@ -114,6 +114,15 @@ async def get_pair_circuit_verification_hash():
     vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
     return vk_data[0]
 
+
+async def get_pair_proxy_circuit_verification_hash():
+    compilation_dir = "circuits/block_verification/pair_proxy"
+    vk = tempfile.NamedTemporaryFile()
+    await compile_project(compilation_dir, no_cache=True)
+    await build_raw_verification_key(vk.name, compilation_dir, BB, no_cache=True)
+    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
+    return vk_data[0]
+
 async def get_entrypoint_block_tree_vk_hash():
     compilation_dir = "circuits/block_verification/entrypoint_block_tree"
     vk = tempfile.NamedTemporaryFile()
@@ -137,6 +146,13 @@ async def main():
     async with aiofiles.open(BLOCK_TREE_VKEY_HASHES_FILE, "w+") as f:
         await f.write(dedent(f"""
         global PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH: Field = {pair_vk_hash};
+        """))
+
+    print("Generating pair proxy verification key hash...")
+    pair_proxy_vk_hash = await get_pair_proxy_circuit_verification_hash()
+    async with aiofiles.open(BLOCK_TREE_VKEY_HASHES_FILE, "a") as f:
+        await f.write(dedent(f"""
+        global PAIR_BLOCK_PROXY_CIRCUIT_KEY_HASH: Field = {pair_proxy_vk_hash};
         """))
 
     # base tree verification key hash

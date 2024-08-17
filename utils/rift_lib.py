@@ -1,8 +1,11 @@
 # utils to create witness data and verify proofs in python
 import asyncio
+import functools
+import pickle
+from typing import Any, Callable, Dict, Tuple
 import tempfile
 import hashlib
-from functools import reduce, cache 
+from functools import reduce, cache, wraps
 import os
 import math
 import json
@@ -42,6 +45,36 @@ from .constants import (
     MAX_INNER_BLOCKS,
     CONFIRMATION_BLOCK_DELTA
 )
+CACHE_DIR = "artifact_cache"
+
+def file_cache(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        # Create cache directory if it doesn't exist
+        os.makedirs(CACHE_DIR, exist_ok=True)
+
+        # Create a unique cache key based on function name and arguments
+        key = f"{func.__name__}_{hashlib.md5(str(args).encode() + str(kwargs).encode()).hexdigest()}"
+        cache_file = os.path.join(CACHE_DIR, f"{key}.pickle")
+
+        # Check if cached result exists
+        if os.path.exists(cache_file):
+            with open(cache_file, "rb") as f:
+                print(f"Loading cached result for {func.__name__}")
+                return pickle.load(f)
+
+        # If not cached, call the original function
+        result = await func(*args, **kwargs)
+
+        # Cache the result
+        with open(cache_file, "wb") as f:
+            print(f"Caching result for {func.__name__}")
+            pickle.dump(result, f)
+
+        return result
+
+    return wrapper
+
 
 T = TypeVar('T')
 
@@ -373,7 +406,9 @@ async def create_giga_circuit_prover_toml(
     safe_block_hash_hex: str,
     retarget_block_hash_hex: str,
     safe_block_height: int,
-    block_height_delta: int,
+    safe_block_height_delta: int,
+    confirmation_block_height_delta: int,
+    retarget_block_height: int,
     lp_hash_verification_key: list[str],
     lp_hash_proof: list[str],
     txn_hash_verification_key: list[str],
@@ -383,6 +418,7 @@ async def create_giga_circuit_prover_toml(
     payment_proof: list[str],
     block_verification_key: list[str],
     block_proof: list[str],
+    block_recursive_aggregation_object: list[str],
     compilation_build_folder: str
 ):
     txn_hash_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(txn_hash_hex))
@@ -430,7 +466,11 @@ async def create_giga_circuit_prover_toml(
             "",
             f"safe_block_height={safe_block_height}",
             "",
-            f"block_height_delta={block_height_delta}",
+            f"safe_block_height_delta={safe_block_height_delta}",
+            "",
+            f"confirmation_block_height_delta={confirmation_block_height_delta}",
+            "",
+            f"retarget_block_height={retarget_block_height}",
             "",
             f"lp_hash_verification_key={json.dumps(lp_hash_verification_key)}",
             "",
@@ -450,6 +490,8 @@ async def create_giga_circuit_prover_toml(
             "",
             f"block_proof={json.dumps(block_proof)}",
             "",
+            f"block_recursive_aggregation_object={json.dumps(block_recursive_aggregation_object)}",
+            "",
             "",
             create_merkle_proof_toml(proposed_merkle_proof),
             "",
@@ -457,7 +499,7 @@ async def create_giga_circuit_prover_toml(
     )
 
     print("Creating witness...")
-    await create_witness(prover_toml_string, compilation_build_folder)
+    print("Giga Witness", await create_witness(prover_toml_string, compilation_build_folder, return_output=True))
 
 
 async def load_recursive_sha_circuit(circuit_path: str):
@@ -511,7 +553,7 @@ def get_chunk_file_name(chunk_id: int):
     return f"vk_chunk_{chunk_id:04d}.json"
 
 
-
+@file_cache
 async def build_recursive_sha256_proof_and_input(
     data_hex_str: str,
     circuit_path: str = "circuits/recursive_sha/src/main.nr",
@@ -539,7 +581,7 @@ async def build_recursive_sha256_proof_and_input(
         await f.write(bytes.fromhex(vk_hexstr_bytes))
 
     print("Compiling recursive sha256 circuit...")
-    await compile_project(build_folder.name)
+    await compile_project(build_folder.name, no_cache=True)
     print("Creating witness...")
     await create_recursive_sha_witness(data, max_chunks, build_folder.name)
     public_inputs_as_fields, proof_as_fields = await create_proof(
@@ -565,7 +607,7 @@ async def build_recursive_sha256_proof_and_input(
         key_hash=vkey_hash,
     )
 
-
+@file_cache
 async def build_recursive_lp_hash_proof_and_input(
     lps: list[LiquidityProvider],
     circuit_path: str = "circuits/lp_hash_verification",
@@ -606,61 +648,7 @@ async def build_recursive_lp_hash_proof_and_input(
     )
 
 
-async def build_recursive_block_proof_and_input(
-    proposed_block: Block,
-    safe_block: Block,
-    retarget_block: Block,
-    inner_blocks: list[Block],
-    confirmation_blocks: list[Block],
-    circuit_path: str = "circuits/block_verification",
-    verify: bool = False
-):
-    num_inner_blocks = proposed_block.height - safe_block.height
-    print("Compiling block verification circuit...")
-    await compile_project(circuit_path)
-    # [2] create prover toml and witness
-    print("Creating prover toml and witness...")
-    await create_block_verification_prover_toml_witness(
-        proposed_merkle_root_hex=proposed_block.merkle_root,
-        confirmation_block_hash_hex=compute_block_hash(
-            confirmation_blocks[-1]),
-        proposed_block_hash_hex=compute_block_hash(proposed_block),
-        safe_block_hash_hex=compute_block_hash(safe_block),
-        retarget_block_hash_hex=compute_block_hash(retarget_block),
-        safe_block_height=safe_block.height,
-        block_height_delta=proposed_block.height - safe_block.height,
-        proposed_block=proposed_block,
-        safe_block=safe_block,
-        retarget_block=retarget_block,
-        inner_block_hashes_hex=[compute_block_hash(
-            block) for block in inner_blocks],
-        inner_blocks=inner_blocks,
-        confirmation_block_hashes_hex=[compute_block_hash(
-            block) for block in confirmation_blocks],
-        confirmation_blocks=confirmation_blocks,
-        compilation_build_folder=circuit_path
-    )
-    # [3] build verification key, create proof, and verify proof
-    vk = "./target/vk"
-    print("Building verification key...")
-    await build_raw_verification_key(vk, circuit_path, BB)
-    print("Creating proof...")
-    public_inputs_as_fields, proof_as_fields = await create_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
-    if verify:
-        print("Verifying proof...")
-        await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
-        print("Block verification proof verified!")
-    print(f"Block proof with {num_inner_blocks + 1 + 6} total blocks created!")
-    encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
-    vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
-    return RecursiveProofArtifact(
-        verification_key=vkey_as_fields,
-        proof=proof_as_fields,
-        public_inputs=public_inputs_as_fields,
-        key_hash=vkey_hash
-    )
-
-
+@file_cache
 async def build_recursive_payment_proof_and_input(
     lps: list[LiquidityProvider],
     txn_data_no_segwit_hex: str,
@@ -845,7 +833,7 @@ async def build_block_tree_circuit_prover_toml(
     prover_toml_string = "\n".join(prover_toml)
 
     print("Creating witness...")
-    witness_stdout = await create_witness(prover_toml_string, circuit_path, show_output=True, return_output=True)
+    witness_stdout = await create_witness(prover_toml_string, circuit_path, return_output=True)
     print("Block Height", first_block_height)
 
     return witness_stdout 
@@ -1010,7 +998,8 @@ async def build_block_tree_proof_and_input(
 
     #encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
     #vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
-    vkey_hash = circuit_data.vk[0]
+    vkey_hash = circuit_data.vk_hash
+
 
           
     witness_stdout = await build_block_tree_circuit_prover_toml(
@@ -1043,6 +1032,8 @@ async def build_block_tree_proof_and_input(
             print("Verification failed on height:", first_block.height, "with_error:", traceback.format_exc(), "\n", "Witness Output:", witness_stdout, "\n", "First Proof Public Input", first_pair_proof.proof_artifact.public_inputs, "\n", "Last Proof Public Input", last_pair_proof.proof_artifact.public_inputs)
             raise Exception("Verification failed")
         print("Block tree proof verified!")
+
+    print("Current Tree Hash:", vkey_hash)
 
     #print("Block Tree with First block height:", first_block.height, "Tree Hash:", vkey_hash, "pub inputs:", public_inputs_as_fields)
 
@@ -1104,6 +1095,7 @@ async def build_block_pair_proof_input(
     print("Block pair proof gen successful!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
+    print("PAIR_VKEY_HASH", vkey_hash)
     if verify: 
         print("Verifying proof...")
         await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
@@ -1144,7 +1136,7 @@ async def build_block_proof_and_input(
     for block in blocks:
         assert block.height - (block.height % 2016) == last_retarget_block.height
 
-    max_height = math.ceil(math.log2(len(blocks)-1))
+    max_height = math.ceil(math.log2(blocks[-1].height - blocks[0].height))
     print("Max Tree Height: ", max_height) 
 
     proof_coros = []
@@ -1169,12 +1161,14 @@ async def build_block_proof_and_input(
 
     # if there is only one pair, return the proof and block pair b/c no need to roll anything up
     if len(pair_proofs) == 1:
-        return BlockTreeArtifact(
-            height=0,
-            proof_artifact=pair_proofs[0].proof_artifact,
-            first_block=pair_proofs[0].first_block,
-            last_block=pair_proofs[0].last_block
+        # wrap the single pair proof in the pair proxy so we can bypass branching in the entrypoint circuit (causes noir to fail due to bug) 
+        return await build_pair_proxy_proof_and_input(
+            block_1=pair_proofs[0].first_block,
+            block_2=pair_proofs[0].last_block,
+            last_retarget_block=last_retarget_block,
+            pair_proof=pair_proofs[0].proof_artifact,
         )
+
     if len(pair_proofs) == 2: # no buffer blocks needed
         buffered_pair_proofs = pair_proofs
         buffered_block_pairs = block_pairs
@@ -1276,8 +1270,10 @@ async def create_block_entrypoint_verification_prover_toml(
         safe_block_height: int,
         block_height_delta: int,
         confirmation_block_height_delta: int,
+        safe_proposed_aggregation_object: list[str],
         safe_proposed_verification_key: list[str],
         safe_proposed_proof: list[str],
+        proposed_confirmation_aggregation_object: list[str],
         proposed_confirmation_verification_key: list[str],
         proposed_confirmation_proof: list[str],
         circuit_path: str = "circuits/block_verification/entrypoint_block_tree"
@@ -1297,14 +1293,19 @@ async def create_block_entrypoint_verification_prover_toml(
             "proposed_block_hash_encoded=" + json.dumps(proposed_block_hash_encoded),
             "safe_block_hash_encoded=" + json.dumps(safe_block_hash_encoded),
             "retarget_block_hash_encoded=" + json.dumps(retarget_block_hash_encoded),
+            "retarget_block_height=" + str(retarget_block.height),
             "safe_block_height=" + str(safe_block_height),
             "block_height_delta=" + str(block_height_delta),
             "confirmation_block_height_delta=" + str(confirmation_block_height_delta),
             "proposed_merkle_root_encoded=" + json.dumps(proposed_merkle_root_encoded),
             "",
+            "safe_proposed_aggregation_object=" + json.dumps(safe_proposed_aggregation_object),
+            "",
             "safe_proposed_verification_key=" + json.dumps(safe_proposed_verification_key),
             "",
             "safe_proposed_proof=" + json.dumps(safe_proposed_proof),
+            "",
+            "proposed_confirmation_aggregation_object=" + json.dumps(proposed_confirmation_aggregation_object),
             "",
             "proposed_confirmation_verification_key=" + json.dumps(proposed_confirmation_verification_key),
             "",
@@ -1324,13 +1325,84 @@ async def create_block_entrypoint_verification_prover_toml(
         ]
     )
     print("Creating witness...")
+    print(await create_witness(prover_toml_string, circuit_path, return_output=True))
+
+
+
+async def create_pair_proxy_verification_prover_toml(
+        first_block: Block,
+        last_block: Block,
+        last_retarget_block: Block,
+        pair_proof: RecursiveProofArtifact,
+        circuit_path: str = "circuits/block_verification/pair_proxy"
+        ):
+    print("Generating prover toml...")
+    prover_toml_string = "\n".join([
+        "first_block_hash=" + json.dumps(hex_string_to_byte_array(compute_block_hash(first_block))),
+        "last_block_hash=" + json.dumps(hex_string_to_byte_array(compute_block_hash(last_block))),
+        "first_block_height=" + str(first_block.height),
+        "last_block_height=" + str(last_block.height),
+        "last_retarget_block_hash=" + json.dumps(hex_string_to_byte_array(compute_block_hash(last_retarget_block))),
+        "last_retarget_block_height=" + str(last_retarget_block.height),
+        "",
+        "pair_verification_key=" + json.dumps(pair_proof.verification_key),
+        "",
+        "pair_proof=" + json.dumps(pair_proof.proof),
+        "",
+    ])
+    print("Creating witness...")
     await create_witness(prover_toml_string, circuit_path)
 
 
+    
+async def build_pair_proxy_proof_and_input(
+    block_1: Block,
+    block_2: Block,
+    last_retarget_block: Block,
+    pair_proof: RecursiveProofArtifact,
+    circuit_path: str = "circuits/block_verification/pair_proxy",
+    verify: bool = False
+):
+    print("Compiling pair proxy verification circuit...")
+    await compile_project(circuit_path)
+    print("Generating prover toml...")
+    await create_pair_proxy_verification_prover_toml(
+        first_block=block_1,
+        last_block=block_2,
+        last_retarget_block=last_retarget_block,
+        pair_proof=pair_proof,
+        circuit_path=circuit_path
+    )
+    vk = "./target/vk"
+    print("Building verification key...")
+    await build_raw_verification_key(vk, circuit_path, BB)
+
+    print("Creating proof...")
+    public_inputs_as_fields, proof_as_fields = await create_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+    print("Pair proxy proof gen successful!")
+    encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
+    vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
+    print("PAIR_PROXY_VKEY_HASH", vkey_hash)
+    if verify:
+        print("Verifying proof...")
+        await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+        print("Pair proxy proof verified!")
+
+    return BlockTreeArtifact(
+        height=0,
+        proof_artifact=RecursiveProofArtifact(
+            verification_key=vkey_as_fields,
+            proof=proof_as_fields,
+            public_inputs=public_inputs_as_fields,
+            key_hash=vkey_hash
+        ),
+        first_block=block_1,
+        last_block=block_2
+    )
 
 
 
-
+@file_cache
 async def build_block_entrypoint_proof_and_input(
     safe_block_height: int,
     safe_block_height_delta: int, # num of blocks between safe + proposed
@@ -1340,22 +1412,36 @@ async def build_block_entrypoint_proof_and_input(
     verify: bool = False,
     circuit_path: str = "circuits/block_verification/entrypoint_block_tree"
     ):
-    confirmation_block_height_delta = len(blocks) - safe_block_height_delta 
+    confirmation_block_height_delta = len(blocks) - safe_block_height_delta - 1
+    safe_proposed_blocks = blocks[:(safe_block_height_delta+1)]
+    proposed_confirmation_blocks = blocks[(safe_block_height_delta):]
     print("Safe->proposed", len(blocks[:safe_block_height_delta]))
     safe_proposed_block_proof = await build_block_proof_and_input(
-        blocks=blocks[:(safe_block_height_delta+1)],
+        blocks=safe_proposed_blocks,
         last_retarget_block=last_retarget_block,
         max_concurrent_proof_gen=max_concurrent_proof_gen,
         verify=verify
     )
+    print("Safe->Proposed Height", safe_proposed_block_proof.height)
+    print("Safe->Proposed Proof Data")
+    print("key_hash =", safe_proposed_block_proof.proof_artifact.key_hash)
+    print("public_inputs =", safe_proposed_block_proof.proof_artifact.public_inputs)
+    print("verification_key =", safe_proposed_block_proof.proof_artifact.verification_key)
+    print("proof =", safe_proposed_block_proof.proof_artifact.proof)
 
     print("Proposed->conf", len(blocks[safe_block_height_delta:]))
     proposed_confirmation_block_proof = await build_block_proof_and_input(
-        blocks=blocks[(safe_block_height_delta+1):],
+        blocks=proposed_confirmation_blocks,
         last_retarget_block=last_retarget_block,
         max_concurrent_proof_gen=max_concurrent_proof_gen,
         verify=verify
     )
+    print("Proposed->Conf Key Hash", proposed_confirmation_block_proof.proof_artifact.key_hash)
+    print("Proposed->Conf Public Inputs", proposed_confirmation_block_proof.proof_artifact.public_inputs)
+
+    safe_proposed_aggregation_object = safe_proposed_block_proof.proof_artifact.public_inputs[-16:]
+
+    proposed_confirmation_aggregation_object = proposed_confirmation_block_proof.proof_artifact.public_inputs[-16:]
 
     print("Generating block entrypoint verification circuit...")
     await compile_project(circuit_path)
@@ -1367,8 +1453,10 @@ async def build_block_entrypoint_proof_and_input(
         safe_block_height=safe_block_height,
         block_height_delta=safe_block_height_delta,
         confirmation_block_height_delta=confirmation_block_height_delta,
+        safe_proposed_aggregation_object=safe_proposed_aggregation_object,
         safe_proposed_verification_key=safe_proposed_block_proof.proof_artifact.verification_key,
         safe_proposed_proof=safe_proposed_block_proof.proof_artifact.proof,
+        proposed_confirmation_aggregation_object=proposed_confirmation_aggregation_object,
         proposed_confirmation_verification_key=proposed_confirmation_block_proof.proof_artifact.verification_key,
         proposed_confirmation_proof=proposed_confirmation_block_proof.proof_artifact.proof,
         circuit_path=circuit_path
@@ -1381,6 +1469,7 @@ async def build_block_entrypoint_proof_and_input(
     public_inputs_as_fields, proof_as_fields = await create_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
     print("Block entrypoint proof gen successful!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
+
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
     if verify:
         print("Verifying proof...")
@@ -1397,22 +1486,22 @@ async def build_block_entrypoint_proof_and_input(
 async def build_giga_circuit_proof_and_input(
     txn_data_no_segwit_hex: str,
     lp_reservations: list[LiquidityProvider],
-    proposed_block_header: Block,
-    safe_block_header: Block,
     retarget_block_header: Block,
-    inner_block_headers: list[Block],
-    confirmation_block_headers: list[Block],
+    blocks: list[Block],
     order_nonce_hex: str,
     expected_payout: int,
     safe_block_height: int,
-    block_height_delta: int,
+    safe_block_height_delta: int,
     circuit_path: str = "circuits/giga",
     verify: bool = False
     ):
-    raise Exception("This Functino needs to be rewriten in context of block rewrite")
-    # [1] compile giga 
     
-    # [2] build recursive proofs and inputs 
+    proposed_block_header = blocks[safe_block_height_delta]
+    safe_block_header = blocks[0]
+    print("Safe Block Height", safe_block_height)
+    print("Proposed Block Height", proposed_block_header.height)
+    assert safe_block_height == proposed_block_header.height - safe_block_height_delta
+    # [1] build recursive proofs and inputs 
     sha_recursive_artifact = await build_recursive_sha256_proof_and_input(
         data_hex_str=txn_data_no_segwit_hex,
         verify=verify
@@ -1423,16 +1512,17 @@ async def build_giga_circuit_proof_and_input(
         verify=verify
     )
     print()
-    """
-    block_recursive_artifact = await build_recursive_block_proof_and_input(
-        proposed_block=proposed_block_header,
-        safe_block=safe_block_header,
-        retarget_block=retarget_block_header,
-        inner_blocks=inner_block_headers,
-        confirmation_blocks=confirmation_block_headers,
+    block_recursive_artifact = await build_block_entrypoint_proof_and_input(
+        safe_block_height=safe_block_height,
+        safe_block_height_delta=safe_block_height_delta,
+        blocks=blocks,
+        last_retarget_block=retarget_block_header,
         verify=verify
     )
-    """
+    print("block recursive public inputs")
+    print(block_recursive_artifact.public_inputs)
+    print("Block recursive key hash")
+    print(block_recursive_artifact.key_hash)
     print()
     payment_recursive_artifact = await build_recursive_payment_proof_and_input(
         lps=lp_reservations,
@@ -1455,7 +1545,7 @@ async def build_giga_circuit_proof_and_input(
     )
     print()
 
-    confirmation_block_hash_hex = compute_block_hash(confirmation_block_headers[-1])
+    confirmation_block_hash_hex = compute_block_hash(blocks[-1])
     proposed_block_hash_hex = compute_block_hash(proposed_block_header)
     safe_block_hash_hex = compute_block_hash(safe_block_header)
     retarget_block_hash_hex = compute_block_hash(retarget_block_header)
@@ -1479,7 +1569,9 @@ async def build_giga_circuit_proof_and_input(
         safe_block_hash_hex=safe_block_hash_hex,
         retarget_block_hash_hex=retarget_block_hash_hex,
         safe_block_height=safe_block_height,
-        block_height_delta=block_height_delta,
+        safe_block_height_delta=safe_block_height_delta,
+        confirmation_block_height_delta=len(blocks) - safe_block_height_delta - 1,
+        retarget_block_height=retarget_block_header.height,
         lp_hash_verification_key=lp_hash_recursive_artifact.verification_key,
         lp_hash_proof=lp_hash_recursive_artifact.proof,
         txn_hash_verification_key=sha_recursive_artifact.verification_key,
@@ -1489,6 +1581,7 @@ async def build_giga_circuit_proof_and_input(
         payment_proof=payment_recursive_artifact.proof,
         block_verification_key=block_recursive_artifact.verification_key,
         block_proof=block_recursive_artifact.proof,
+        block_recursive_aggregation_object=block_recursive_artifact.public_inputs[-16:],
         compilation_build_folder=circuit_path
     )
 
