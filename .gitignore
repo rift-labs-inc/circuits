@@ -6,3 +6,5 @@
 **Verifier.toml
 .env
 cache
+.noir_cache
+artifact_cache

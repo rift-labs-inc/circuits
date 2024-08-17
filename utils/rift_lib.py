@@ -553,7 +553,6 @@ def get_chunk_file_name(chunk_id: int):
     return f"vk_chunk_{chunk_id:04d}.json"
 
 
-@file_cache
 async def build_recursive_sha256_proof_and_input(
     data_hex_str: str,
     circuit_path: str = "circuits/recursive_sha/src/main.nr",
@@ -607,7 +606,6 @@ async def build_recursive_sha256_proof_and_input(
         key_hash=vkey_hash,
     )
 
-@file_cache
 async def build_recursive_lp_hash_proof_and_input(
     lps: list[LiquidityProvider],
     circuit_path: str = "circuits/lp_hash_verification",
@@ -648,7 +646,6 @@ async def build_recursive_lp_hash_proof_and_input(
     )
 
 
-@file_cache
 async def build_recursive_payment_proof_and_input(
     lps: list[LiquidityProvider],
     txn_data_no_segwit_hex: str,
@@ -1402,7 +1399,6 @@ async def build_pair_proxy_proof_and_input(
 
 
 
-@file_cache
 async def build_block_entrypoint_proof_and_input(
     safe_block_height: int,
     safe_block_height_delta: int, # num of blocks between safe + proposed
