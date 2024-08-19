@@ -35,6 +35,7 @@ python tests/block_circuit_test.py
 python tests/payment_circuit_test.py
 python tests/lp_circuit_test.py
 python tests/sha256_circuit_test.py
+python tests/giga_circuit_test.py
 ```
 
 
@@ -42,9 +43,9 @@ python tests/sha256_circuit_test.py
 The `Giga` circuit needs verification key hashes to validate the subcircuits it recurses, these can be generated with the following commands.
 
 #### Standard Recursive Circuits 
-Generates the verification key hashes for the standard recursive circuits (lp hash, block, payment), slow to run.
+Generates the verification key hashes for the rift specific recursive circuits (lp hash, block, payment), slow to run.
 ```
-python scripts/generate_recursive_circuit_verification_key_hashes.py 1> ./circuits/giga/src/recursive_circuit_hashes.nr
+python scripts/generate_subcircuit_verification_keys.py
 ```
 
 #### Recursive SHA256 Circuit
