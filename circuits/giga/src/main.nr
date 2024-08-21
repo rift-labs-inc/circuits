@@ -6,6 +6,9 @@ mod sha256_circuit_hashes;
 mod sha256_merkle;
 mod recursive_circuit_hashes;
 
+global MAX_BLOCK_HASHES = 750;
+global BLOCK_PUBLIC_INPUT_COUNT = 25 + (MAX_BLOCK_HASHES*2);
+
 // Verifies a rift payment utxo end-to-end 
 fn main(
     // Transaction Hash Verification
@@ -21,14 +24,12 @@ fn main(
     lp_count: pub u64,
     lp_reservation_data_flat_encoded: [Field; constants::MAX_LIQUIDITY_PROVIDERS*4],
     // Block Verification
-    confirmation_block_hash_encoded: pub [Field; 2],
-    proposed_block_hash_encoded: pub [Field; 2],
-    safe_block_hash_encoded: pub [Field; 2],
     retarget_block_hash_encoded: pub [Field; 2],
     safe_block_height: pub u64,
     safe_block_height_delta: pub u64,
     confirmation_block_height_delta: pub u64,
     retarget_block_height: pub u64,
+    block_hashes_encoded: pub [Field; MAX_BLOCK_HASHES*2],
     // Proof Data
     lp_hash_verification_key: [Field; 114],
     lp_hash_proof: [Field; 93],
@@ -100,46 +101,32 @@ fn main(
         recursive_circuit_hashes::payment_verification_circuit_key_hash
     );
 
+    let mut block_pub_input: [Field; BLOCK_PUBLIC_INPUT_COUNT] = [0 as Field; BLOCK_PUBLIC_INPUT_COUNT];
+
+    for i in 0..MAX_BLOCK_HASHES*2 {
+        block_pub_input[i] = block_hashes_encoded[i];
+    }
+    block_pub_input[MAX_BLOCK_HASHES*2] = retarget_block_hash_encoded[0];
+    block_pub_input[MAX_BLOCK_HASHES*2 + 1] = retarget_block_hash_encoded[1];
+    block_pub_input[MAX_BLOCK_HASHES*2 + 2] = safe_block_height as Field;
+    block_pub_input[MAX_BLOCK_HASHES*2 + 3] = safe_block_height_delta as Field;
+    block_pub_input[MAX_BLOCK_HASHES*2 + 4] = confirmation_block_height_delta as Field;
+    block_pub_input[MAX_BLOCK_HASHES*2 + 5] = proposed_merkle_root_encoded[0];
+    block_pub_input[MAX_BLOCK_HASHES*2 + 6] = proposed_merkle_root_encoded[1];
+    block_pub_input[MAX_BLOCK_HASHES*2 + 7] = retarget_block_height as Field;
+  
+    for i in 0..16 {
+        block_pub_input[MAX_BLOCK_HASHES*2 + 8 + i] = block_recursive_aggregation_object[i];
+    }
+
     // Block Verification
-    let block_pub_input: [Field] = &[
-        confirmation_block_hash_encoded[0],
-        confirmation_block_hash_encoded[1],
-        proposed_block_hash_encoded[0],
-        proposed_block_hash_encoded[1],
-        safe_block_hash_encoded[0],
-        safe_block_hash_encoded[1],
-        retarget_block_hash_encoded[0],
-        retarget_block_hash_encoded[1],
-        safe_block_height as Field,
-        safe_block_height_delta as Field,
-        confirmation_block_height_delta as Field,
-        proposed_merkle_root_encoded[0],
-        proposed_merkle_root_encoded[1],
-        retarget_block_height as Field,
-        block_recursive_aggregation_object[0],
-        block_recursive_aggregation_object[1],
-        block_recursive_aggregation_object[2],
-        block_recursive_aggregation_object[3],
-        block_recursive_aggregation_object[4],
-        block_recursive_aggregation_object[5],
-        block_recursive_aggregation_object[6],
-        block_recursive_aggregation_object[7],
-        block_recursive_aggregation_object[8],
-        block_recursive_aggregation_object[9],
-        block_recursive_aggregation_object[10],
-        block_recursive_aggregation_object[11],
-        block_recursive_aggregation_object[12],
-        block_recursive_aggregation_object[13],
-        block_recursive_aggregation_object[14],
-        block_recursive_aggregation_object[15],
-    ];
     println("Block Pub Input:");
     println(block_pub_input);
 
     std::verify_proof(
         block_verification_key.as_slice(),
         block_proof.as_slice(),
-        block_pub_input,
+        block_pub_input.as_slice(),
         recursive_circuit_hashes::block_verification_circuit_key_hash
     );
 }
