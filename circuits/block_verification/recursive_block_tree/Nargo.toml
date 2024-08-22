@@ -1,8 +1,0 @@
-[package]
-name = "recursive_block_tree"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.30.0"
-
-[dependencies]
-block_lib = { path = "../block_lib" }

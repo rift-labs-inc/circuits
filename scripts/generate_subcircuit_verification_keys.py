@@ -98,25 +98,9 @@ async def gen_block_tree_circuit(base_tree_circuit_hash_hex: str, n: int = 20) -
         circuit_hash_list.append(vk_data[0])
     return circuit_hash_list, tree_height_to_circuit_data
 
-async def get_base_tree_circuit_verification_hash():
-    compilation_dir = "circuits/block_verification/base_block_tree"
-    vk = tempfile.NamedTemporaryFile()
-    await compile_project(compilation_dir, no_cache=True)
-    await build_raw_verification_key(vk.name, compilation_dir, BB, no_cache=True)
-    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
-    return vk_data[0]
 
-async def get_pair_circuit_verification_hash():
-    compilation_dir = "circuits/block_verification/pair_block_verification"
-    vk = tempfile.NamedTemporaryFile()
-    await compile_project(compilation_dir, no_cache=True)
-    await build_raw_verification_key(vk.name, compilation_dir, BB, no_cache=True)
-    vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
-    return vk_data[0]
-
-
-async def get_pair_proxy_circuit_verification_hash():
-    compilation_dir = "circuits/block_verification/pair_proxy"
+async def get_base_block_verification_key_hash():
+    compilation_dir = "circuits/block_verification/base_block"
     vk = tempfile.NamedTemporaryFile()
     await compile_project(compilation_dir, no_cache=True)
     await build_raw_verification_key(vk.name, compilation_dir, BB, no_cache=True)
@@ -131,60 +115,37 @@ async def get_entrypoint_block_tree_vk_hash():
     vk_data = await extract_vk_as_fields(vk.name, compilation_dir, BB, no_cache=True)
     return vk_data[0]
 
-async def print_pair_circuit_verification_hash():
-    pair_circuit_hash = await get_pair_circuit_verification_hash()
-    print(dedent(f"""    global pair_block_verification_circuit_key_hash: Field = {pair_circuit_hash};"""
-    ))
-
 async def main():
     BLOCK_TREE_VKEY_HASHES_FILE = "circuits/block_verification/block_lib/src/vk_hashes.nr"
     GIGA_RECURSIVE_VKEY_HASHES_FILE = "circuits/giga/src/recursive_circuit_hashes.nr"
-    GENERATED_CIRCUITS_DIR = "generated_block_tree_circuits/"
-    BLOCK_TREE_HEIGHT = 11 
-    print("Generating pair verification key hash...")
-    pair_vk_hash = await get_pair_circuit_verification_hash()
+
+    print("Generating base block verification key hash...")
+    base_block_verification_key_hash = await get_base_block_verification_key_hash()
     async with aiofiles.open(BLOCK_TREE_VKEY_HASHES_FILE, "w+") as f:
         await f.write(dedent(f"""
-        global PAIR_BLOCK_VERIFICATION_CIRCUIT_KEY_HASH: Field = {pair_vk_hash};
+        global BASE_BLOCK_VERIFICATION_KEY_HASH: Field = {base_block_verification_key_hash};
         """))
-
-    print("Generating pair proxy verification key hash...")
-    pair_proxy_vk_hash = await get_pair_proxy_circuit_verification_hash()
-    async with aiofiles.open(BLOCK_TREE_VKEY_HASHES_FILE, "a") as f:
-        await f.write(dedent(f"""
-        global PAIR_BLOCK_PROXY_CIRCUIT_KEY_HASH: Field = {pair_proxy_vk_hash};
-        """))
-
-    # base tree verification key hash
-    print("Generating base tree verification key hash...")
-    base_key_hash = await get_base_tree_circuit_verification_hash()
-
-    circuit_hash_list, tree_height_to_circuit_data = await gen_block_tree_circuit(base_key_hash, BLOCK_TREE_HEIGHT)
-    async with aiofiles.open(BLOCK_TREE_VKEY_HASHES_FILE, "a") as f:
-        await f.write(f"global BLOCK_TREE_CIRCUIT_KEY_HASHES: [Field; {len(circuit_hash_list)}] = [")
-        [await f.write(f"  {hash}{',' if i != len(circuit_hash_list) - 1 else ''}") for i, hash in enumerate(circuit_hash_list)]
-        await f.write("];\n")
-
-    for height, data in tree_height_to_circuit_data.items():
-        async with aiofiles.open(os.path.join(GENERATED_CIRCUITS_DIR, f"block_tree_height_{height}.json"), "w+") as f:
-            await f.write(json.dumps(data, indent=2))
-
 
     print("Generating entrypoint block tree verification key hash...")
-    entrypoint_vk_hash = await get_entrypoint_block_tree_vk_hash()
     print("Generating lp hash verification key hash...")
-    lp_hash = await get_lp_hash_verification_vk_hash()
     print("Generating payment verification key hash...")
-    payment_hash = await get_payment_verification_vk_hash()
+    
+    entrypoint_vk_hash, lp_hash, payment_hash = await asyncio.gather(*[
+        get_entrypoint_block_tree_vk_hash(),
+        get_lp_hash_verification_vk_hash(),
+        get_payment_verification_vk_hash()
+    ])
+
 
     async with aiofiles.open(GIGA_RECURSIVE_VKEY_HASHES_FILE, "w+") as f:
         await f.write(dedent(f"""global payment_verification_circuit_key_hash: Field = {payment_hash};
-    global block_verification_circuit_key_hash: Field = {entrypoint_vk_hash};
-    global lp_hash_verification_key_hash: Field = {lp_hash};"""
+global block_verification_circuit_key_hash: Field = {entrypoint_vk_hash};
+global lp_hash_verification_key_hash: Field = {lp_hash};"""
     ))
 
     # this can only happen after everything is generated 
-    await ensure_cache_is_current() 
+    print("skipping cache population")
+    #await ensure_cache_is_current() 
     print("Done!")
 
     
