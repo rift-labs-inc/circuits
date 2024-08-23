@@ -42,6 +42,7 @@ from .constants import (
     BB,
     MAX_BLOCK_HASHES_PER_BASE_PROOF,
     MAX_BLOCK_HASHES_PER_ENTRYPOINT_PROOF,
+    MAX_BLOCK_PROOFS,
     MAX_ENCODED_CHUNKS,
     MAX_LIQUIDITY_PROVIDERS,
     MAX_INNER_BLOCKS,
@@ -720,6 +721,7 @@ async def create_block_base_prover_toml(
     print("Creating witness...")
     print("Block Base Witness STDOUT", await create_witness(prover_toml_string, circuit_path, return_output=True))
 
+@file_cache
 async def build_block_base_proof_and_input(
     blocks: list[Block],
     last_retarget_block: Block,
@@ -733,7 +735,7 @@ async def build_block_base_proof_and_input(
     circuit_path = os.path.join(temp_dir.name, original_circuit_path)
     os.makedirs(circuit_path, exist_ok=True) 
 
-    print("Compiling block pair verification circuit...")
+    print("Compiling base block verification circuit...")
     await compile_project(circuit_path)
     
     print("Creating prover toml and witness...")
@@ -750,13 +752,13 @@ async def build_block_base_proof_and_input(
     print("Creating proof...")
     public_inputs_as_fields, proof_as_fields = await create_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
     
-    print("Block pair proof gen successful!")
+    print("Base block proof gen successful!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
     if verify: 
         print("Verifying proof...")
         await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
-        print("Block pair proof verified!")
+        print("Base block proof verified!")
 
     return BaseBlockArtifact(
         proof_artifact=RecursiveProofArtifact(
@@ -780,184 +782,149 @@ async def proof_gen_semaphore_wrapper(semaphore: asyncio.BoundedSemaphore, coro:
 # entry point for building block proofs
 async def build_block_proof_and_input(
     blocks: list[Block],
+    safe_block_height_delta: int,
     last_retarget_block: Block,
     max_concurrent_proof_gen: int = 1,
-    verify: bool = False
-    ):
+    verify: bool = False,
+    circuit_path: str = "circuits/block_verification/entrypoint_block_tree"
+):
     for block in blocks:
         assert block.height - (block.height % 2016) == last_retarget_block.height
 
     assert len(blocks) < MAX_BLOCK_HASHES_PER_ENTRYPOINT_PROOF, "Too many blocks to generate proofs for"
 
+
+    block_chunk_count = len(blocks) // MAX_BLOCK_HASHES_PER_BASE_PROOF
+    block_chunk_overflow = len(blocks) % MAX_BLOCK_HASHES_PER_BASE_PROOF
+    total_proofs = block_chunk_count + (1 if block_chunk_overflow != 0 else 0)
+
     proof_coros = []
     bounded_semaphore = asyncio.BoundedSemaphore(max_concurrent_proof_gen)
     
-    for i, _ in enumerate(blocks):
-        if i == len(blocks)-1:
-            break
+
+    for i in range(block_chunk_count):
         coro = build_block_base_proof_and_input(
-            blocks[i],
-            blocks[i+1],
+            blocks[i*MAX_BLOCK_HASHES_PER_BASE_PROOF:i*MAX_BLOCK_HASHES_PER_BASE_PROOF+MAX_BLOCK_HASHES_PER_BASE_PROOF],
             last_retarget_block,
-            safe_concurrent=True,
             verify=verify
         )
-        proof_coros.append(proof_gen_semaphore_wrapper(bounded_semaphore, coro, f"{i+1}/{len(blocks)-1}"))
+        proof_coros.append(proof_gen_semaphore_wrapper(bounded_semaphore, coro, f"{i+1}/{total_proofs}"))
+
+    if block_chunk_overflow != 0:
+        coro = build_block_base_proof_and_input(
+            blocks[block_chunk_count*MAX_BLOCK_HASHES_PER_BASE_PROOF:],
+            last_retarget_block,
+            verify=verify
+        )
+        proof_coros.append(proof_gen_semaphore_wrapper(bounded_semaphore, coro, f"{block_chunk_count+1}/{total_proofs}"))
     
-    print("Pair Proof count: ", len(proof_coros))
-    pair_proofs = await asyncio.gather(*proof_coros)
+    print("Base Block Proof Count: ", len(proof_coros))
+    base_blocks = await asyncio.gather(*proof_coros)
+    print("Base Blocks", [print(f"Block {i}", "\nVK Hash", base_block.proof_artifact.key_hash, "\nVerification Key", base_block.proof_artifact.verification_key, "\nPublic Inputs:", base_block.proof_artifact.public_inputs) for i, base_block in enumerate(base_blocks)])
 
 
-async def create_block_entrypoint_verification_prover_toml(
-        confirmation_block: Block,
-        proposed_block: Block,
-        safe_block: Block,
-        retarget_block: Block,
-        safe_block_height: int,
-        block_height_delta: int,
-        confirmation_block_height_delta: int,
-        safe_proposed_aggregation_object: list[str],
-        safe_proposed_verification_key: list[str],
-        safe_proposed_proof: list[str],
-        proposed_confirmation_aggregation_object: list[str],
-        proposed_confirmation_verification_key: list[str],
-        proposed_confirmation_proof: list[str],
-        circuit_path: str = "circuits/block_verification/entrypoint_block_tree"
-    ):
-    confirmation_block_hash_encoded = split_hex_into_31_byte_chunks(compute_block_hash(confirmation_block))
-    proposed_block_hash_encoded = split_hex_into_31_byte_chunks(compute_block_hash(proposed_block))
-    safe_block_hash_encoded = split_hex_into_31_byte_chunks(compute_block_hash(safe_block))
-    retarget_block_hash_encoded = split_hex_into_31_byte_chunks(compute_block_hash(retarget_block))
-    proposed_merkle_root_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(proposed_block.merkle_root))
     print("Compiling block entrypoint verification circuit...")
     await compile_project(circuit_path)
 
-    print("Generating prover toml...")
-    prover_toml_string = "\n".join(
-        [
-            "confirmation_block_hash_encoded=" + json.dumps(confirmation_block_hash_encoded),
-            "proposed_block_hash_encoded=" + json.dumps(proposed_block_hash_encoded),
-            "safe_block_hash_encoded=" + json.dumps(safe_block_hash_encoded),
-            "retarget_block_hash_encoded=" + json.dumps(retarget_block_hash_encoded),
-            "retarget_block_height=" + str(retarget_block.height),
-            "safe_block_height=" + str(safe_block_height),
-            "block_height_delta=" + str(block_height_delta),
-            "confirmation_block_height_delta=" + str(confirmation_block_height_delta),
-            "proposed_merkle_root_encoded=" + json.dumps(proposed_merkle_root_encoded),
-            "",
-            "safe_proposed_aggregation_object=" + json.dumps(safe_proposed_aggregation_object),
-            "",
-            "safe_proposed_verification_key=" + json.dumps(safe_proposed_verification_key),
-            "",
-            "safe_proposed_proof=" + json.dumps(safe_proposed_proof),
-            "",
-            "proposed_confirmation_aggregation_object=" + json.dumps(proposed_confirmation_aggregation_object),
-            "",
-            "proposed_confirmation_verification_key=" + json.dumps(proposed_confirmation_verification_key),
-            "",
-            "proposed_confirmation_proof=" + json.dumps(proposed_confirmation_proof),
-            "",
-            "[confirmation_block]",
-            *await block_toml_encoder(confirmation_block),
-            "",
-            "[proposed_block]",
-            *await block_toml_encoder(proposed_block),
-            "",
-            "[safe_block]",
-            *await block_toml_encoder(safe_block),
-            "",
-            "[retarget_block]",
-            *await block_toml_encoder(retarget_block),
-        ]
-    )
-    print("Creating witness...")
-    print(await create_witness(prover_toml_string, circuit_path, return_output=True))
-
-
-
-
-
-    
-
-async def build_block_entrypoint_proof_and_input(
-    safe_block_height: int,
-    safe_block_height_delta: int, # num of blocks between safe + proposed
-    blocks: list[Block],
-    last_retarget_block: Block,
-    max_concurrent_proof_gen: int = 10,
-    verify: bool = False,
-    circuit_path: str = "circuits/block_verification/entrypoint_block_tree"
-    ):
-    confirmation_block_height_delta = len(blocks) - safe_block_height_delta - 1
-    safe_proposed_blocks = blocks[:(safe_block_height_delta+1)]
-    proposed_confirmation_blocks = blocks[(safe_block_height_delta):]
-    print("Safe->proposed", len(blocks[:safe_block_height_delta]))
-    safe_proposed_block_proof = await build_block_proof_and_input(
-        blocks=safe_proposed_blocks,
-        last_retarget_block=last_retarget_block,
-        max_concurrent_proof_gen=max_concurrent_proof_gen,
-        verify=verify
-    )
-    print("Safe->Proposed Height", safe_proposed_block_proof.height)
-    print("Safe->Proposed Proof Data")
-    print("key_hash =", safe_proposed_block_proof.proof_artifact.key_hash)
-    print("public_inputs =", safe_proposed_block_proof.proof_artifact.public_inputs)
-    print("verification_key =", safe_proposed_block_proof.proof_artifact.verification_key)
-    print("proof =", safe_proposed_block_proof.proof_artifact.proof)
-
-    print("Proposed->conf", len(blocks[safe_block_height_delta:]))
-    proposed_confirmation_block_proof = await build_block_proof_and_input(
-        blocks=proposed_confirmation_blocks,
-        last_retarget_block=last_retarget_block,
-        max_concurrent_proof_gen=max_concurrent_proof_gen,
-        verify=verify
-    )
-    print("Proposed->Conf Key Hash", proposed_confirmation_block_proof.proof_artifact.key_hash)
-    print("Proposed->Conf Public Inputs", proposed_confirmation_block_proof.proof_artifact.public_inputs)
-
-    safe_proposed_aggregation_object = safe_proposed_block_proof.proof_artifact.public_inputs[-16:]
-
-    proposed_confirmation_aggregation_object = proposed_confirmation_block_proof.proof_artifact.public_inputs[-16:]
-
-    print("Generating block entrypoint verification circuit...")
-    await compile_project(circuit_path)
+    print("Creating prover toml and witness...")
     await create_block_entrypoint_verification_prover_toml(
-        confirmation_block=blocks[-1],
-        proposed_block=blocks[safe_block_height_delta],
-        safe_block=blocks[0],
-        retarget_block=last_retarget_block,
-        safe_block_height=safe_block_height,
-        block_height_delta=safe_block_height_delta,
-        confirmation_block_height_delta=confirmation_block_height_delta,
-        safe_proposed_aggregation_object=safe_proposed_aggregation_object,
-        safe_proposed_verification_key=safe_proposed_block_proof.proof_artifact.verification_key,
-        safe_proposed_proof=safe_proposed_block_proof.proof_artifact.proof,
-        proposed_confirmation_aggregation_object=proposed_confirmation_aggregation_object,
-        proposed_confirmation_verification_key=proposed_confirmation_block_proof.proof_artifact.verification_key,
-        proposed_confirmation_proof=proposed_confirmation_block_proof.proof_artifact.proof,
+        blocks=blocks,
+        last_retarget_block=last_retarget_block,
+        safe_block_height=blocks[0].height,
+        safe_block_height_delta=safe_block_height_delta,
+        confirmation_block_height_delta=len(blocks) - safe_block_height_delta - 1,
+        base_block_artifacts=base_blocks,
         circuit_path=circuit_path
     )
 
     vk = "./target/vk"
     print("Building verification key...")
     await build_raw_verification_key(vk, circuit_path, BB)
+    
     print("Creating proof...")
     public_inputs_as_fields, proof_as_fields = await create_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
-    print("Block entrypoint proof gen successful!")
+    
+    print("Entrypoint block proof gen successful!")
     encoded_vkey = await extract_vk_as_fields(vk, circuit_path, BB)
-
     vkey_hash, vkey_as_fields = encoded_vkey[0], encoded_vkey[1:]
-    if verify:
+    if verify: 
         print("Verifying proof...")
-        await verify_proof(vk, circuit_path, BB)
-        print("Block entrypoint proof verified!")
+        await verify_proof(vk_path=vk, compilation_dir=circuit_path, bb_binary=BB)
+        print("Entrypoint block proof verified!")
 
-    return RecursiveProofArtifact(
-        verification_key=vkey_as_fields,
-        proof=proof_as_fields,
-        public_inputs=public_inputs_as_fields,
-        key_hash=vkey_hash
+    return BaseBlockArtifact(
+        proof_artifact=RecursiveProofArtifact(
+            verification_key=vkey_as_fields,
+            proof=proof_as_fields,
+            public_inputs=public_inputs_as_fields,
+            key_hash=vkey_hash
+        )
     )
+    
+
+
+
+"""
+
+  block_hashes_encoded: pub [[Field; 2]; MAX_BLOCK_HASHES], 
+  retarget_block_hash_encoded: pub [Field; 2],
+  safe_block_height: pub u64,
+  safe_block_height_delta: pub u64,
+  confirmation_block_height_delta: pub u64,
+  proposed_merkle_root_encoded: pub [Field; 2],
+  retarget_block_height: pub u64,
+  proposed_block: pub Block,
+  base_block_verification_key: [Field; 114],
+  proofs: [[Field; 93]; MAX_BLOCK_PROOFS]
+"""
+
+async def create_block_entrypoint_verification_prover_toml(
+    blocks: list[Block],
+    last_retarget_block: Block,
+    safe_block_height: int,
+    safe_block_height_delta: int,
+    confirmation_block_height_delta: int,
+    base_block_artifacts: list[BaseBlockArtifact],
+    circuit_path: str = "circuits/block_verification/entrypoint_block_tree"
+):
+
+    block_hashes_encoded = pad_list(list(map(lambda block: split_hex_into_31_byte_chunks(normalize_hex_str(compute_block_hash(block))), blocks)), MAX_BLOCK_HASHES_PER_ENTRYPOINT_PROOF, ["0x00", "0x00"])
+    retarget_block_hash_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(compute_block_hash(last_retarget_block)))
+    proposed_block = blocks[safe_block_height_delta]
+    proposed_merkle_root_encoded = split_hex_into_31_byte_chunks(normalize_hex_str(proposed_block.merkle_root))
+    retarget_block_height = last_retarget_block.height
+    base_block_verification_key = base_block_artifacts[0].proof_artifact.verification_key
+    for block_proof in base_block_artifacts:
+        assert block_proof.proof_artifact.verification_key == base_block_verification_key
+
+    #proofs_padded = pad_list([block_proof.proof_artifact.proof for block_proof in base_block_artifacts], 1, base_block_artifacts[0].proof_artifact.proof)
+    proofs_padded = [base_block_artifacts[0].proof_artifact.proof]
+
+    
+    print("Compiling block entrypoint verification circuit...")
+    await compile_project(circuit_path)
+
+    print("Generating prover toml...")
+    prover_toml_string = "\n".join(
+        [
+            f"block_hashes_encoded={json.dumps(block_hashes_encoded)}",
+            f"retarget_block_hash_encoded={json.dumps(retarget_block_hash_encoded)}",
+            f"safe_block_height={safe_block_height}",
+            f"safe_block_height_delta={safe_block_height_delta}",
+            f"confirmation_block_height_delta={confirmation_block_height_delta}",
+            f"proposed_merkle_root_encoded={json.dumps(proposed_merkle_root_encoded)}",
+            f"retarget_block_height={retarget_block_height}",
+            f"base_block_verification_key={json.dumps(base_block_verification_key)}",
+            f"proofs={json.dumps(proofs_padded)}",
+            "",
+            "[proposed_block]",
+            *await block_toml_encoder(proposed_block),
+        ]
+    )
+    print("Creating witness...")
+    print(await create_witness(prover_toml_string, circuit_path, return_output=True))
+
+
 
 async def build_giga_circuit_proof_and_input(
     txn_data_no_segwit_hex: str,
