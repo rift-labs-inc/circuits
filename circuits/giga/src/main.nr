@@ -1,13 +1,12 @@
 use dep::std;
 use dep::rift_lib::byte_lib;
 use dep::rift_lib::constants;
-use dep::block_verification::block_lib::MAX_BLOCK_HASHES;
+use dep::block_lib::bitcoin::MAX_BLOCK_HASHES;
 
 mod sha256_circuit_hashes;
 mod sha256_merkle;
 mod recursive_circuit_hashes;
 
-global BLOCK_PUBLIC_INPUT_COUNT = 25 + (MAX_BLOCK_HASHES*2);
 
 // Verifies a rift payment utxo end-to-end 
 fn main(
@@ -101,7 +100,7 @@ fn main(
         recursive_circuit_hashes::payment_verification_circuit_key_hash
     );
 
-    let mut block_pub_input: [Field; BLOCK_PUBLIC_INPUT_COUNT] = [0 as Field; BLOCK_PUBLIC_INPUT_COUNT];
+    let mut block_pub_input: [Field; 25 + (MAX_BLOCK_HASHES*2)] = [0 as Field; 1525];
 
     for i in 0..MAX_BLOCK_HASHES*2 {
         block_pub_input[i] = block_hashes_encoded[i];

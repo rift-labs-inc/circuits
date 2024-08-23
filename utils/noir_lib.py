@@ -254,10 +254,8 @@ async def ensure_cache_is_current(
     cache_directory: str = ".noir_cache",
     noir_circuit_directory: str = "circuits",
     desired_circuits: List[str] = [
-        "circuits/block_verification/base_block_tree",
+        "circuits/block_verification/base_block",
         "circuits/block_verification/entrypoint_block_tree",
-        "circuits/block_verification/pair_block_verification",
-        "circuits/block_verification/pair_proxy",
         "circuits/giga",
         "circuits/lp_hash_verification",
         "circuits/payment_verification"

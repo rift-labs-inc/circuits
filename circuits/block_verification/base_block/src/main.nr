@@ -4,6 +4,7 @@ use dep::rift_lib::byte_lib;
 use dep::block_lib::bitcoin::{Block, build_block_hash, verify_block, MAX_BASE_BLOCK_HASH_COUNT};
 use dep::block_lib::{build_tree_circuit_public_input};
 
+
 #[recursive]
 fn main(
     block_hashes_encoded: pub [[Field; 2]; MAX_BASE_BLOCK_HASH_COUNT],
