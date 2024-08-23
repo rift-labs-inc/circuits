@@ -17,7 +17,7 @@ import httpx
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from .rift_lib import CONFIRMATION_BLOCK_DELTA, Block
+from .rift_lib import CONFIRMATION_BLOCK_DELTA, Block, file_cache
 from .noir_lib import normalize_hex_str
 
 load_dotenv()
@@ -206,6 +206,7 @@ def get_rpc(mainnet: bool = True):
 
 # Uses an bitcoin rpc client to fetch block data, close to prod impl
 
+@file_cache
 async def get_rift_btc_data(proposed_block_height: int, safe_block_height: int, confirmation_block_delta: int = 5, txid: Optional[str] = None, mainnet: bool = True) -> RiftBitcoinData:
     SelectParams("mainnet" if mainnet else "testnet")
     rpc_url = get_rpc(mainnet)

@@ -1,6 +1,10 @@
 use dep::std;
 use dep::rift_lib::byte_lib;
+// MAX_BASE_BLOCK_PROOF_COUNT
 
+global MAX_BASE_BLOCK_HASH_COUNT = 90;
+global MAX_BLOCK_HASHES = 750;
+global MAX_BLOCK_PROOFS = MAX_BLOCK_HASHES / MAX_BASE_BLOCK_HASH_COUNT;
 global TARGET_PERIOD: u32 = 2016; // blocks between difficulty retargets
 global TARGET_TIMESPAN: u32 = 1209600; // goal time of 10 minutes per block * 2016 blocks
 global CONFIRMATION_BLOCK_DELTA: u64 = 5;

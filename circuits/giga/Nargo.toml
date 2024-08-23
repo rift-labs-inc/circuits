@@ -6,3 +6,4 @@ compiler_version = ">=0.26.0"
 
 [dependencies]
 rift_lib = { path = "../lib" }
+block_lib = { path = "../block_verification/block_lib" }
