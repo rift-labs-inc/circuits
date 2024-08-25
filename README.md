@@ -1,59 +1,74 @@
-# circuits
+# circuits 
 
-## Quickstart Dependencies
-<details>
-<summary>Linux Dependencies</summary>
+## Requirements
 
-```
-sudo apt install libgmp3-dev build-essential
-```
-</details>
+- [Rust](https://rustup.rs/)
+- [SP1](https://succinctlabs.github.io/sp1/getting-started/install.html)
 
-**Install**<br>
-- [Pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#automatic-installer)<br>
-- [Noir](https://noir-lang.org/docs/getting_started/installation/#installing-noirup)<br>
+## Running the Project
 
-**Then run**<br>
-```
-noirup --version 0.30.0
-cd circuits/lp_hash_verification && $HOME/.nargo/bin/nargo info # trigger install of barratenberg
-pyenv install 3.11
-pyenv virtualenv 3.11 rift 
-python -m pip install -r requirements.txt
+There are three main ways to run this project: execute a program, generate a core proof, and
+generate an EVM-compatible proof.
+
+### Execute the Program
+
+To run the program without generating a proof:
+
+```sh
+cd script
+cargo run --release -- --execute
 ```
 
+This will execute the program and display the output.
 
-### Tests
-To test any of the scattered unit tests, `cd` into the directory of the subcircuit you want to test and run:
-```
-nargo test --show-output
-```
+### Generate a Core Proof
 
-E2E tests can be run from the root directory:
-```
-python tests/block_circuit_test.py
-python tests/payment_circuit_test.py
-python tests/lp_circuit_test.py
-python tests/sha256_circuit_test.py
-python tests/giga_circuit_test.py
+To generate a core proof for your program:
+
+```sh
+cd script
+cargo run --release -- --prove
 ```
 
+### Generate an EVM-Compatible (PLONK) Proof
 
-### Create Subcircuit Verification Keys
-The `Giga` circuit needs verification key hashes to validate the subcircuits it recurses, these can be generated with the following commands.
+> [!WARNING]
+> You will need at least 128GB RAM to generate the PLONK proof.
 
-#### Standard Recursive Circuits 
-Generates the verification key hashes for the rift specific recursive circuits (lp hash, block, payment), slow to run.
+To generate a PLONK proof that is small enough to be verified on-chain and verifiable by the EVM:
+
+```sh
+cd script
+cargo run --release --bin evm
 ```
-python scripts/generate_subcircuit_verification_keys.py
+
+This command also generates a fixture that can be used to test the verification of SP1 zkVM proofs
+inside Solidity.
+
+### Retrieve the Verification Key
+
+To retrieve your `programVKey` for your on-chain contract, run the following command:
+
+```sh
+cargo run --release --bin vkey
 ```
 
-#### Recursive SHA256 Circuit
-`n` specifies which chunk (1000 circuits) from 0-6 inclusive to generate verification keys for.
-1. Generate verification keys and hashes<br>
-    ```python scripts/generate_recursive_sha_vkeys.py <chunk_number>```
+## Using the Prover Network
 
-2. Create hash list<br>
-    ```python scripts/create_recursive_sha256_hashlist.py 1> ./circuits/giga/src/sha256_circuit_hashes.nr```
+We highly recommend using the Succinct prover network for any non-trivial programs or benchmarking purposes. For more information, see the [setup guide](https://docs.succinct.xyz/prover-network/setup.html).
 
+To get started, copy the example environment file:
 
+```sh
+cp .env.example .env
+```
+
+Then, set the `SP1_PROVER` environment variable to `network` and set the `SP1_PRIVATE_KEY`
+environment variable to your whitelisted private key.
+
+For example, to generate an EVM-compatible proof using the prover network, run the following
+command:
+
+```sh
+SP1_PROVER=network SP1_PRIVATE_KEY=... cargo run --release --bin evm
+```
