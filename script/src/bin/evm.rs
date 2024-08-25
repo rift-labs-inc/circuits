@@ -14,7 +14,7 @@ use sp1_sdk::{HashableKey, ProverClient, SP1ProofWithPublicValues, SP1Stdin, SP1
 use std::path::PathBuf;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-pub const FIBONACCI_ELF: &[u8] = include_bytes!("../../../elf/riscv32im-succinct-zkvm-elf");
+pub const MAIN_ELF: &[u8] = include_bytes!("../../../elf/riscv32im-succinct-zkvm-elf");
 
 /// The arguments for the EVM command.
 #[derive(Parser, Debug)]
@@ -44,7 +44,7 @@ fn main() {
     let client = ProverClient::new();
 
     // Setup the program.
-    let (pk, vk) = client.setup(FIBONACCI_ELF);
+    let (pk, vk) = client.setup(MAIN_ELF);
 
     // Setup the inputs.
     let mut stdin = SP1Stdin::new();
