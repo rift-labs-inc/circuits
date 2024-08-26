@@ -1,0 +1,9 @@
+[package]
+name = "utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bitcoincore-rpc-async = "3.0.1"
+thiserror = "1.0.63"
+rift-lib = { path = "../lib" }
