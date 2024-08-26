@@ -8,4 +8,3 @@ pub async fn generate_merkle_proof(txns: Vec<[u8; 32]>, natural_txid: [u8; 32]) 
     todo!()
 }
 
-

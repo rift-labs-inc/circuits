@@ -5,6 +5,16 @@
 - [Rust](https://rustup.rs/)
 - [SP1](https://succinctlabs.github.io/sp1/getting-started/install.html)
 
+### Directory Overview
+
+| Directory | Purpose | Contents |
+|-----------|---------|----------|
+| `lib/`    | Internal Library | Encapsulates all circuit business logic |
+| `program/`| Executable Wrapper | Combines SP1 with our circuit library to program executable |
+| `script/` | Build Utilities | Contains scripts for building circuit binaries and proofs |
+| `utils/`  | Client Library | Client-facing library for creating proofs and interacting with the circuit |
+| `tests/`  | Testing Suite | Integration tests |
+
 ## Running the Project
 
 There are three main ways to run this project: execute a program, generate a core proof, and

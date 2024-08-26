@@ -1,5 +1,6 @@
 pub mod constants;
 pub mod tx_hash;
+pub mod sha256_merkle;
 
 use alloy_sol_types::sol;
 use constants::MAX_BLOCKS;
@@ -13,7 +14,7 @@ pub struct CircuitPublicValues {
     pub lp_reservation_hash: [u8; 32],
     pub order_nonce: [u8; 32],
     pub expected_payout: [u8; 32], // this needs to be decoded in the program as a U256, this gets
-                                   // around having to serde U256
+                                   // around having to serde a U256
     pub lp_count: u64,
     pub retarget_block_hash: [u8; 32],
     pub safe_block_height: u64,
@@ -28,7 +29,7 @@ pub struct CircuitInput {
     #[serde(flatten)]
     pub public_values: CircuitPublicValues,
     pub txn_data_no_segwit: Vec<u8>,
-    pub merkle_proof: [[u8; 32]; 20],
+    pub merkle_proof: Vec<u8>,
     pub lp_reservation_data: [[u8; 32]; 4],
 }
 
@@ -54,12 +55,26 @@ sol! {
 pub fn validate_rift_transaction(
     circuit_input: CircuitInput,
 ) -> CircuitPublicValues {
-    // Validate the transaction hash
+    // Transaction Hash Verification
     assert_eq!(
         tx_hash::get_natural_txid(&circuit_input.txn_data_no_segwit),
         circuit_input.public_values.natural_txid,
         "Invalid transaction hash"
     );
+    
+    // Transaction Inclusion Verification
+    /*
+    sha256_merkle::assert_merkle_proof_equality(
+        
+        circuit_input.public_values.merkle_root,
+        circuit_input.public_values.natural_txid,
+        circuit_input.merkle_proof, 
+    );
+    */
+
+    // Payment Verification + Lp Hash Verification
+
+
     circuit_input.public_values
 }
 
