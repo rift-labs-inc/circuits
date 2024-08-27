@@ -31,7 +31,7 @@ mod tests {
     fn test_hash_loaded_block() {
         let block_file = "data/block_858564.hex";
         let block_bytes = &Vec::<u8>::from_hex(&fs::read_to_string(block_file).unwrap()).unwrap();
-        let block: Block = deserialize(&block_bytes).unwrap();
+        let block = deserialize::<Block>(&block_bytes).unwrap();
         //println!("hash {:?}", block.block_hash());
 
         let hash = get_natural_txid(&block_bytes);

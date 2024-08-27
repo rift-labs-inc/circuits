@@ -9,3 +9,5 @@ sha2 = {  workspace = true }
 crypto-bigint = {  workspace = true }
 serde = { workspace = true }
 hex-literal = {  workspace = true }
+alloy-merkle-tree = {  workspace = true }
+alloy-primitives = {  workspace = true }

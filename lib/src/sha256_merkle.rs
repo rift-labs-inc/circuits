@@ -8,6 +8,7 @@ pub struct MerkleProofStep {
 }
 
 
+
 pub fn hash_pairs(hash_1: [u8; 32], hash_2: [u8; 32]) -> [u8; 32] {
     // [0] convert hashes to little-endian
     let mut hash1: [u8; 32] = [0; 32];
@@ -61,4 +62,51 @@ pub fn assert_merkle_proof_equality(
         }
     }
 	assert!(current_hash == merkle_root, "Merkle proof verification failed");
+}
+
+pub fn generate_merkle_proof_and_root(leaves: Vec<[u8; 32]>, desired_leaf: [u8; 32]) -> (Vec<MerkleProofStep>, [u8; 32]) {
+    let mut current_level = leaves;
+    let mut proof: Vec<MerkleProofStep> = Vec::new();
+    let mut desired_index = current_level.iter().position(|&leaf| leaf == desired_leaf)
+        .expect("Desired leaf not found in the list of leaves");
+
+    while current_level.len() > 1 {
+        let mut next_level = Vec::new();
+        let mut i = 0;
+
+        while i < current_level.len() {
+            let left = current_level[i];
+            let right = if i + 1 < current_level.len() {
+                current_level[i + 1]
+            } else {
+                left
+            };
+
+            let parent_hash = hash_pairs(left, right);
+            next_level.push(parent_hash);
+
+            if i == desired_index || i + 1 == desired_index {
+                let proof_step = if i == desired_index {
+                    MerkleProofStep {
+                        hash: right,
+                        direction: true,
+                    }
+                } else {
+                    MerkleProofStep {
+                        hash: left,
+                        direction: false,
+                    }
+                };
+                proof.push(proof_step);
+                desired_index /= 2;
+            }
+
+            i += 2;
+        }
+
+        current_level = next_level;
+    }
+
+    let merkle_root = current_level[0];
+    (proof, merkle_root)
 }
