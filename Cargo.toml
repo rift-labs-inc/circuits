@@ -2,18 +2,22 @@
 members = [
     "lib",
     "program",
-    "script", "tests",
+    "script",
+    "tests",
     "utils",
 ]
 resolver = "2"
 
 [workspace.dependencies]
+bitcoincore-rpc-async = "3.0.1"
 alloy-sol-types = "0.7.7"
 hex-literal = "0.4.1"
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8" }
 crypto-bigint = { git = "https://github.com/sp1-patches/RustCrypto-bigint", branch = "patch-v0.5.5" }
 serde = { version = "1.0.209", features = ["derive"] }
+serde_json = "1.0"
 
 [patch.crates-io]
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
 crypto-bigint = { git = "https://github.com/sp1-patches/RustCrypto-bigint", package= "crypto-bigint", branch = "patch-v0.5.5" }
+

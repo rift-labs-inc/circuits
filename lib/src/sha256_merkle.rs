@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, Clone, Copy)]
 pub struct MerkleProofStep {
-    hash: [u8; 32],
-    direction: bool,
+    pub hash: [u8; 32],
+    pub direction: bool,
 }
 
 
-fn hash_pairs(hash_1: [u8; 32], hash_2: [u8; 32]) -> [u8; 32] {
+pub fn hash_pairs(hash_1: [u8; 32], hash_2: [u8; 32]) -> [u8; 32] {
     // [0] convert hashes to little-endian
     let mut hash1: [u8; 32] = [0; 32];
     let mut hash2: [u8; 32] = [0; 32];
@@ -61,14 +61,4 @@ pub fn assert_merkle_proof_equality(
         }
     }
 	assert!(current_hash == merkle_root, "Merkle proof verification failed");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_merkle_proof_verification() {
-
-    }
 }
