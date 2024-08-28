@@ -1,4 +1,5 @@
 mod errors;
+mod transaction;
 use bitcoin::hashes::Hash;
 use errors::{BitcoinRpcError};
 use std::fmt::Write;

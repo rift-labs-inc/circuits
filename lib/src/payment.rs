@@ -23,11 +23,12 @@ struct TxOut {
     txout_script_length: u8,
     txout_script: [u8; MAX_SCRIPTSIG_SIZE as usize],
 }
+
 #[derive(Debug, Clone, Copy)]
-struct RiftLiquidityReservation {
-    amount_reserved: U256,
-    btc_exchange_rate: u64,
-    script_pub_key: [u8; 22],
+pub struct LiquidityReservation {
+    pub amount_reserved: U256,
+    pub btc_exchange_rate: u64,
+    pub script_pub_key: [u8; 22],
 }
 
 // Helper functions
@@ -66,8 +67,8 @@ fn extract_int_from_compint_pointer(data_pointer: u64, txn_data: &[u8]) -> (u64,
 
 fn decode_liqudity_providers(
     liquidity_providers_encoded: [[[u8; 32]; 3]; MAX_LIQUIDITY_PROVIDERS],
-) -> [RiftLiquidityReservation; MAX_LIQUIDITY_PROVIDERS] {
-    let mut liquidity_providers = [RiftLiquidityReservation {
+) -> [LiquidityReservation; MAX_LIQUIDITY_PROVIDERS] {
+    let mut liquidity_providers = [LiquidityReservation {
         amount_reserved: U256::ZERO,
         btc_exchange_rate: 0,
         script_pub_key: [0; 22],
@@ -93,7 +94,7 @@ fn decode_liqudity_providers(
 
 fn assert_payment_utxos_exist(
     txn_data: &[u8],
-    reserved_liquidity_providers: &[RiftLiquidityReservation; MAX_LIQUIDITY_PROVIDERS],
+    reserved_liquidity_providers: &[LiquidityReservation; MAX_LIQUIDITY_PROVIDERS],
     lp_count: u64,
     order_nonce: [u8; 32],
     expected_payout: u64,
