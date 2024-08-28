@@ -6,7 +6,7 @@ use bitcoin::hashes::hex::FromHex;
 
 
 use rift_lib::sha256_merkle::{MerkleProofStep, hash_pairs};
-use rift_lib::bitcoin::Block as RiftOptimizedBlock;
+use rift_lib::btc_light_client::Block as RiftOptimizedBlock;
 
 pub fn load_hex_bytes(file: &str) -> Vec<u8> {
     let hex_string = std::fs::read_to_string(file).expect("Failed to read file");

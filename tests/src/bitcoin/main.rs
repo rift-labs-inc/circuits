@@ -5,7 +5,7 @@ mod tests {
     use bitcoin::hex::{DisplayHex, FromHex};
     use bitcoin::Block;
 
-    use rift_lib::bitcoin::{
+    use rift_lib::btc_light_client::{
         assert_blockchain, assert_pow, bits_to_target, verify_block, Block as RiftOptimizedBlock,
     };
     use utils::{
