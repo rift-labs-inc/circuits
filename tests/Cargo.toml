@@ -19,6 +19,10 @@ path = "src/bitcoin/main.rs"
 name = "lp_hash"
 path = "src/lp_hash/main.rs"
 
+[[test]]
+name = "payment"
+path = "src/payment/main.rs"
+
 
 [dependencies]
 rift-lib = { path = "../lib" }

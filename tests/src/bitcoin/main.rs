@@ -40,7 +40,7 @@ mod tests {
 
     #[test]
     fn test_bits_to_target() {
-        let block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
+        let block: Block = deserialize(&load_hex_bytes("data/block_858564.hex")).unwrap();
         let rift_block = to_rift_optimized_block(858564, &block);
         println!("Bits: {:?}", rift_block.bits);
 
@@ -54,6 +54,8 @@ mod tests {
             "Proposed target: {:?}",
             Vec::<u8>::from_hex(&proposed_target.to_string()).unwrap()
         );
+
+
         assert_eq!(
             canon_target.to_be_bytes(),
             Vec::<u8>::from_hex(&proposed_target.to_string())

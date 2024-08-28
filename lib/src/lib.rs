@@ -3,6 +3,7 @@ pub mod constants;
 pub mod sha256_merkle;
 pub mod tx_hash;
 pub mod lp_hash;
+pub mod payment;
 
 use alloy_sol_types::sol;
 use constants::MAX_BLOCKS;
