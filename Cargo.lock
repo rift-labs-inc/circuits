@@ -5169,6 +5169,7 @@ dependencies = [
  "rift-lib",
  "serde",
  "serde_json",
+ "sha2",
  "utils",
 ]
 

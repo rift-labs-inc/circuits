@@ -1,7 +1,7 @@
 use sha2::{Sha256, Digest};
 use crate::constants::MAX_LIQUIDITY_PROVIDERS;
 
-fn build_hashable_chunk(lp_data: [[u8; 32]; 4], intermediate_vault_hash: [u8; 32]) -> [u8; 128] {
+pub fn build_hashable_chunk(lp_data: [[u8; 32]; 4], intermediate_vault_hash: [u8; 32]) -> [u8; 128] {
     let mut solidity_encoded_lp_data = [0u8; 128];
     
     // Copy the first 3 32-byte chunks directly
