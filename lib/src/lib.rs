@@ -2,11 +2,11 @@ pub mod btc_light_client;
 pub mod constants;
 pub mod sha256_merkle;
 pub mod tx_hash;
-pub mod lp_hash;
+pub mod lp;
 pub mod payment;
 
 use alloy_sol_types::sol;
-use constants::MAX_BLOCKS;
+use constants::{MAX_BLOCKS, MAX_LIQUIDITY_PROVIDERS};
 use crypto_bigint::U256;
 use serde::{Deserialize, Serialize};
 use sha256_merkle::MerkleProofStep;
@@ -17,8 +17,7 @@ pub struct CircuitPublicValues {
     pub merkle_root: [u8; 32],
     pub lp_reservation_hash: [u8; 32],
     pub order_nonce: [u8; 32],
-    pub expected_payout: [u8; 32], // this needs to be decoded in the program as a U256, this gets
-    // around having to serde a U256
+    pub expected_payout: u64, 
     pub lp_count: u64,
     pub retarget_block_hash: [u8; 32],
     pub safe_block_height: u64,
@@ -28,13 +27,14 @@ pub struct CircuitPublicValues {
     pub block_hashes: [[u8; 32]; MAX_BLOCKS],
 }
 
+
 #[derive(Default, Serialize, Deserialize)]
 pub struct CircuitInput {
     #[serde(flatten)]
     pub public_values: CircuitPublicValues,
     pub txn_data_no_segwit: Vec<u8>,
     pub merkle_proof: Vec<MerkleProofStep>,
-    pub lp_reservation_data: [[u8; 32]; 4],
+    pub lp_reservation_data: Vec<[[u8; 32]; 3]>,
     pub blocks: Vec<btc_light_client::Block>,
     pub retarget_block: btc_light_client::Block,
 }
@@ -46,7 +46,7 @@ sol! {
         bytes32 merkle_root;
         bytes32 lp_reservation_hash;
         bytes32 order_nonce;
-        uint256 expected_payout;
+        uint64 expected_payout;
         uint64 lp_count;
         bytes32 retarget_block_hash;
         uint64 safe_block_height;
@@ -85,29 +85,21 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
         circuit_input.merkle_proof.as_slice(),
     );
 
-    // Payment Verification + Lp Hash Verification
+    // LP Hash Verification
+    lp::assert_lp_hash(
+        circuit_input.public_values.lp_reservation_hash,
+        &circuit_input.lp_reservation_data,
+        circuit_input.lp_reservation_data.len() as u32
+    );
+
+    // Payment Verification 
+    payment::assert_bitcoin_payment(
+        &circuit_input.txn_data_no_segwit,
+        circuit_input.lp_reservation_data,
+        circuit_input.public_values.order_nonce,
+        circuit_input.public_values.expected_payout,
+        circuit_input.public_values.lp_count,
+    );
 
     circuit_input.public_values
 }
-
-/*
-   // Transaction Hash Verification
-   txn_hash_encoded: pub [Field; 2],
-   intermediate_hash_encoded_and_txn_data: [Field; constants::MAX_ENCODED_CHUNKS + 2],
-   // Transaction Inclusion Verification
-   proposed_merkle_root_encoded: [Field; 2],
-   proposed_merkle_proof: [sha256_merkle::MerkleProofStep; 20],
-   // Payment Verification + Lp Hash Verification
-   lp_reservation_hash_encoded: pub [Field; 2],
-   order_nonce_encoded: pub [Field; 2],
-   expected_payout: pub u64,
-   lp_count: pub u64,
-   lp_reservation_data_flat_encoded: [Field; constants::MAX_LIQUIDITY_PROVIDERS*4],
-   // Block Verification
-   retarget_block_hash_encoded: pub [Field; 2],
-   safe_block_height: pub u64,
-   safe_block_height_delta: pub u64,
-   confirmation_block_height_delta: pub u64,
-   retarget_block_height: pub u64,
-   block_hashes_encoded: pub [Field; MAX_BLOCK_HASHES*2],
-*/

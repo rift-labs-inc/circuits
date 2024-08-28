@@ -1,8 +1,7 @@
+use crypto_bigint::{NonZero, Zero, U256, CheckedMul, CheckedAdd};
 use std::ops::Div;
 
-use crypto_bigint::{ArrayEncoding, NonZero, Zero, U256, CheckedMul, CheckedAdd};
-
-use crate::constants::MAX_LIQUIDITY_PROVIDERS;
+use crate::{constants::MAX_LIQUIDITY_PROVIDERS, lp::{decode_liqudity_providers, LiquidityReservation}};
 
 // Constants
 const MAX_SCRIPTSIG_SIZE: u64 = 22;
@@ -24,12 +23,6 @@ struct TxOut {
     txout_script: [u8; MAX_SCRIPTSIG_SIZE as usize],
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct LiquidityReservation {
-    pub amount_reserved: U256,
-    pub btc_exchange_rate: u64,
-    pub script_pub_key: [u8; 22],
-}
 
 // Helper functions
 fn to_int<const N: usize>(bytes: [u8; N]) -> u64 {
@@ -65,32 +58,6 @@ fn extract_int_from_compint_pointer(data_pointer: u64, txn_data: &[u8]) -> (u64,
     (counter, counter_byte_len)
 }
 
-fn decode_liqudity_providers(
-    liquidity_providers_encoded: [[[u8; 32]; 3]; MAX_LIQUIDITY_PROVIDERS],
-) -> [LiquidityReservation; MAX_LIQUIDITY_PROVIDERS] {
-    let mut liquidity_providers = [LiquidityReservation {
-        amount_reserved: U256::ZERO,
-        btc_exchange_rate: 0,
-        script_pub_key: [0; 22],
-    }; MAX_LIQUIDITY_PROVIDERS];
-
-    for i in 0..MAX_LIQUIDITY_PROVIDERS {
-        // Extract amount reserved
-        liquidity_providers[i].amount_reserved =
-            U256::from_be_slice(&liquidity_providers_encoded[i][0]);
-
-        // Extract BTC exchange rate
-        liquidity_providers[i].btc_exchange_rate =
-            u64::from_be_bytes(liquidity_providers_encoded[i][1][0..8].try_into().unwrap());
-
-        // Extract script pub key
-        liquidity_providers[i]
-            .script_pub_key
-            .copy_from_slice(&liquidity_providers_encoded[i][2][0..22]);
-    }
-
-    liquidity_providers
-}
 
 fn assert_payment_utxos_exist(
     txn_data: &[u8],
@@ -166,11 +133,12 @@ fn assert_payment_utxos_exist(
 
     assert_eq!(calculated_payout, U256::from_u64(expected_payout));
 
+    println!("LP payout confirmed");
+
     data_pointer += AMOUNT_LEN as u64;
     let (sig_counter, sig_counter_byte_len) =
         extract_int_from_compint_pointer(data_pointer, txn_data);
     data_pointer += sig_counter_byte_len as u64;
-    println!("sig_counter: {}", sig_counter);
 
     assert_eq!(sig_counter, 34);
 
@@ -182,15 +150,18 @@ fn assert_payment_utxos_exist(
     let inscribed_order_nonce =
         grab_bytes_be_conditional::<32>(txn_data, data_pointer, |i| i < sig_counter as u64);
     assert_eq!(inscribed_order_nonce, order_nonce);
+
+    println!("Order nonce matches");
 }
 
 pub fn assert_bitcoin_payment(
     txn_data_no_segwit: &[u8],
-    lp_reservation_data_encoded: [[[u8; 32]; 3]; MAX_LIQUIDITY_PROVIDERS],
+    lp_reservation_data_encoded: Vec<[[u8; 32]; 3]>,
     order_nonce: [u8; 32],
     expected_payout: u64,
     lp_count: u64,
 ) {
+    assert!(lp_reservation_data_encoded.len() <= MAX_LIQUIDITY_PROVIDERS as usize);
     let liquidity_providers = decode_liqudity_providers(lp_reservation_data_encoded);
     assert_payment_utxos_exist(
         txn_data_no_segwit,

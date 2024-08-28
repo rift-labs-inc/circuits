@@ -14,7 +14,7 @@ fi
 
 # Set default values
 OUTPUT_DIR="tests/data"
-HEIGHTS=(858564 856800 858565 858566 858567 858568)
+HEIGHTS=(854136 858564 856800 858565 858566 858567 858568)
 
 # Function to display usage
 usage() {

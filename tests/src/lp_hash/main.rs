@@ -6,7 +6,7 @@ mod tests {
     use bitcoin::Block;
 
     use rift_lib::constants::MAX_LIQUIDITY_PROVIDERS;
-    use rift_lib::lp_hash::{
+    use rift_lib::lp::{
         assert_lp_hash, build_hashable_chunk
     };
     use utils::{to_little_endian, load_hex_bytes, generate_merkle_proof_and_root};

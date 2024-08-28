@@ -5165,6 +5165,7 @@ name = "tests"
 version = "0.1.0"
 dependencies = [
  "bitcoin",
+ "crypto-bigint",
  "hex-literal",
  "rift-lib",
  "serde",

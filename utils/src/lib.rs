@@ -1,5 +1,6 @@
+pub mod transaction;
+
 mod errors;
-mod transaction;
 use bitcoin::hashes::Hash;
 use errors::{BitcoinRpcError};
 use std::fmt::Write;
@@ -22,8 +23,8 @@ pub fn to_little_endian<const N: usize>(input: [u8; N]) -> [u8; N] {
     output
 }
 
-pub fn to_hex_string(bytes: &[u8; 32]) -> String {
-    let mut s = String::with_capacity(64);
+pub fn to_hex_string(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
     for &b in bytes {
         write!(&mut s, "{:02x}", b).unwrap();
     }

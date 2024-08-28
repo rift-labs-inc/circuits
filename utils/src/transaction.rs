@@ -1,142 +1,179 @@
+use bitcoin::opcodes::all::{OP_PUSHBYTES_32, OP_RETURN};
+use bitcoin::locktime::absolute::LockTime;
+use bitcoin::script::Builder;
 use bitcoin::{
-    Address, Network, OutPoint, Script, Transaction, TxIn, TxOut, Witness, transaction,
+    transaction, Address, Amount, CompressedPublicKey, Network, OutPoint, PrivateKey, Script, ScriptBuf, Sequence, TxOut, Txid
 };
-use bitcoin::consensus::encode::serialize;
-use bitcoin::hashes::{hash160, Hash};
-use bitcoin::secp256k1::{Message, Secp256k1, SecretKey};
 use bitcoin::psbt::Psbt;
+use bitcoin::{
+    Transaction, TxIn, Witness, EcdsaSighashType, PublicKey,
+    consensus::encode::serialize,
+    hashes::{hash160, Hash, sha256d, HashEngine},
+    secp256k1::{self, Message, Secp256k1, SecretKey},
+    consensus::Encodable
+};
+use bitcoin::sighash::SighashCache;
+
+use crypto_bigint::{U256, NonZero};
+use rift_lib::lp::LiquidityReservation;
 use std::str::FromStr;
-use serde_json;
+
+use crate::to_little_endian;
 
 // Assuming you have a crate named `rift_lib` with these types
-use rift_lib::payment::{LiquidityReservation};
 
-struct P2WPKHBitcoinWallet {
+
+pub struct P2WPKHBitcoinWallet {
     secret_key: SecretKey,
     public_key: String,
-    unlock_script: [u8; 22],
+    unlock_script: [u8; 25],
     address: Address,
 }
 
-fn wei_to_satoshi(wei_amount: U256, wei_sats_exchange_rate: u64) -> u64 {
-    wei_amount / wei_sats_exchange_rate
+impl P2WPKHBitcoinWallet {
+    pub fn new(secret_key: SecretKey, public_key: String, unlock_script: [u8; 25], address: Address) -> Self {
+        Self { secret_key, public_key, unlock_script, address }
+    }
+
+    pub fn from_secret_key(secret_key: [u8; 32], network: Network) -> Self {
+        let secret_key = SecretKey::from_slice(&secret_key).unwrap();
+        let secp = Secp256k1::new();
+        let pk = PrivateKey::new(secret_key, network);
+        let public_key = PublicKey::from_private_key(&secp, &pk);
+        let unlock_script = public_key.p2wpkh_script_code().unwrap().to_bytes();
+        let address = Address::p2wpkh(&CompressedPublicKey::from_private_key(&secp, &pk).unwrap(), network);
+        Self::new(secret_key, public_key.to_string(), unlock_script.try_into().unwrap(), address)
+    }
+
+    pub fn get_p2wpkh_script(&self) -> ScriptBuf {
+        let public_key = PublicKey::from_str(&self.public_key).expect("Invalid public key");
+        ScriptBuf::new_p2wpkh(&public_key.wpubkey_hash().expect("Invalid public key for P2WPKH"))
+    }
 }
 
-fn build_rift_payment_transaction(
-    order_nonce_hex: [u8; 32],
+fn wei_to_satoshi(wei_amount: U256, wei_sats_exchange_rate: u64) -> u64 {
+    let rate = NonZero::new(U256::from_u64(wei_sats_exchange_rate))
+        .expect("Exchange rate cannot be zero");
+    
+    let result = wei_amount
+        .checked_div(&rate)
+        .expect("Division overflow");
+    
+    if result > U256::from_u64(u64::MAX) {
+        panic!("Result exceeds u64 capacity");
+    }
+    
+    result.as_limbs()[0].into()
+}
+
+pub fn serialize_no_segwit(tx: &Transaction) -> Vec<u8> {
+    let mut buffer = Vec::new();
+    tx.version.consensus_encode(&mut buffer).expect("Encoding version failed");
+    tx.input.consensus_encode(&mut buffer).expect("Encoding inputs failed");
+    tx.output.consensus_encode(&mut buffer).expect("Encoding outputs failed");
+    tx.lock_time.consensus_encode(&mut buffer).expect("Encoding lock_time failed");
+    buffer
+}
+
+pub fn build_rift_payment_transaction(
+    order_nonce: [u8; 32],
     liquidity_providers: &[LiquidityReservation],
-    in_tx_block_hash_hex: [u8; 32],
-    in_txid_hex: [u8; 32],
+    in_txid: [u8; 32],
     transaction: &Transaction,
     in_txvout: u32,
     wallet: &P2WPKHBitcoinWallet,
     fee_sats: u64,
-    mainnet: bool,
-) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    let network = if mainnet { Network::Bitcoin } else { Network::Testnet };
-
+) -> Transaction {
     // Fetch transaction data (you'll need to implement this function)
 
     let total_lp_sum_btc: u64 = liquidity_providers.iter()
         .map(|lp| wei_to_satoshi(lp.amount_reserved, lp.btc_exchange_rate))
         .sum();
 
-    let vin_sats = (transaction["vout"][in_txvout as usize]["value"].as_f64().unwrap() * 100_000_000.0) as u64;
+    let vin_sats = transaction.output[in_txvout as usize].value.to_sat();
 
     println!("Total LP Sum BTC: {}", total_lp_sum_btc);
     println!("Vin sats: {}", vin_sats);
+    
 
     let mut tx_outs = Vec::new();
 
     // Add liquidity provider outputs
     for lp in liquidity_providers {
-        let amount = wei_to_satoshi(lp.amount, lp.btc_exchange_rate);
-        let script = Script::from_hex(&normalize_hex_str(&lp.locking_script_hex))?;
-        tx_outs.push(TxOut { value: amount, script_pubkey: script });
+        let amount = wei_to_satoshi(lp.amount_reserved, lp.btc_exchange_rate);
+        let script = Script::from_bytes(&lp.script_pub_key);
+        tx_outs.push(TxOut { value: Amount::from_sat(amount), script_pubkey: script.into() });
     }
+
+    // Add OP_RETURN output
+    let op_return_script = Builder::new()
+        .push_opcode(OP_RETURN)
+        .push_slice(&order_nonce)
+        .into_script();    tx_outs.push(TxOut { value: Amount::ZERO, script_pubkey: op_return_script });
 
     // Add change output
     let change_amount = vin_sats - total_lp_sum_btc - fee_sats;
     tx_outs.push(TxOut {
-        value: change_amount,
-        script_pubkey: wallet.unlock_script.clone(),
+        value: Amount::from_sat(change_amount),
+        script_pubkey: wallet.get_p2wpkh_script(),
     });
 
-    // Add OP_RETURN output
-    let op_return_script = Script::new_op_return(&hex::decode(normalize_hex_str(order_nonce_hex))?);
-    tx_outs.push(TxOut { value: 0, script_pubkey: op_return_script });
 
     // Create input
-    let outpoint = OutPoint::from_str(&format!("{}:{}", in_txid_hex, in_txvout))?;
+    let outpoint = OutPoint::new(Txid::from_slice(to_little_endian::<32>(in_txid).as_slice()).unwrap(), in_txvout);
     let tx_in = TxIn {
         previous_output: outpoint,
-        script_sig: Script::new(),
-        sequence: 0xFFFFFFFD,
+        script_sig: Script::new().into(),
+        sequence: Sequence(0xFFFFFFFD),
         witness: Witness::new(),
     };
 
     // Create unsigned transaction
     let mut tx = Transaction {
-        version: 2,
-        lock_time: 0,
+        version: transaction::Version(1),
+        lock_time: LockTime::from_consensus(0),
         input: vec![tx_in],
         output: tx_outs,
     };
 
-    // Sign the transaction (you'll need to implement this part)
-    // This is a placeholder for the signing logic
-    let signed_tx = sign_transaction(&mut tx, wallet, vin_sats)?;
 
-    Ok(serde_json::json!({
-        "txid_data": hex::encode(serialize(&signed_tx)),
-        "txid": signed_tx.txid().to_string(),
-        "tx": hex::encode(serialize(&signed_tx)),
-    }))
+    sign_transaction(&mut tx, &wallet, vin_sats)
 }
 
-// You'll need to implement these functions
-async fn fetch_transaction_data_in_block(block_hash: String, txid: String, rpc_url: &str, verbose: bool) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    // Implementation here
-    unimplemented!()
+fn sign_transaction(tx: &mut Transaction, wallet: &P2WPKHBitcoinWallet, input_amount: u64) -> Transaction {
+    let secp = Secp256k1::new();
+    let public_key = PublicKey::from_str(&wallet.public_key).unwrap();
+
+    // We're assuming there's only one input to sign
+    let input_index = 0;
+
+    // Create a SighashCache for efficient signature hash computation
+    let mut sighash_cache = SighashCache::new(tx.clone());
+
+    // Compute the sighash
+    let sighash = sighash_cache.p2wpkh_signature_hash(
+        input_index,
+        &wallet.get_p2wpkh_script(),
+        Amount::from_sat(input_amount),
+        EcdsaSighashType::All,
+    ).unwrap();
+
+    // Sign the sighash
+    let signature = secp.sign_ecdsa(&secp256k1::Message::from_digest_slice(&sighash[..]).unwrap(), &wallet.secret_key);
+
+    // Serialize the signature and add the sighash type
+    let mut signature_bytes = signature.serialize_der().to_vec();
+    signature_bytes.push(EcdsaSighashType::All as u8);
+
+    // Create the witness
+    let witness = Witness::from_slice(&[
+        signature_bytes.as_slice(),
+        &public_key.to_bytes(),
+    ]);
+
+    // Set the witness for the input
+    tx.input[input_index].witness = witness;
+
+    tx.clone()
 }
 
-fn sign_transaction(tx: &mut Transaction, wallet: &&P2WPKHBitcoinWallet, input_amount: u64) -> Result<Transaction, Box<dyn std::error::Error>> {
-    // Implementation here
-    unimplemented!()
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mainnet = true;
-    let wallet = get_wallet(mainnet);
-
-    let order_nonce = "f0ad57e677a89d2c2aaae4c5fd52ba20c63c0a05c916619277af96435f874c64";
-    let lp_wallets = vec![
-        LiquidityProvider { amount: 99835000000000, btc_exchange_rate: 205000000000, locking_script_hex: "001463dff5f8da08ca226ba01f59722c62ad9b9b3eaa".to_string() },
-        LiquidityProvider { amount: 99835000000000, btc_exchange_rate: 205000000000, locking_script_hex: "0014aa86191235be8883693452cf30daf854035b085b".to_string() },
-        LiquidityProvider { amount: 99835000000000, btc_exchange_rate: 205000000000, locking_script_hex: "00146ab8f6c80b8a7dc1b90f7deb80e9b59ae16b7a5a".to_string() },
-    ];
-    let proposed_block_hash = "00000000000000000003679bc829350e7b26cc98d54030c2edc5e470560c1fdc";
-    let proposed_txid = "8df99d697780166f12df68b1e2410a909374b6414da57a1a65f3b84eb8a4dd0f";
-    let txvout = 4;
-
-    let unbroadcast_txn = build_rift_payment_transaction(
-        order_nonce,
-        &lp_wallets,
-        proposed_block_hash,
-        proposed_txid,
-        txvout,
-        &wallet,
-        &get_rpc(mainnet),
-        1100,
-        mainnet,
-    ).await?;
-
-    println!("Txn Data: {}", serde_json::to_string_pretty(&unbroadcast_txn)?);
-
-    // Broadcast transaction (you'll need to implement this function)
-    let broadcast_result = broadcast_transaction(&unbroadcast_txn["tx"].as_str().unwrap(), &get_rpc(mainnet)).await?;
-    println!("Broadcast result: {}", broadcast_result);
-
-    Ok(())
-}
