@@ -7,7 +7,7 @@ mod tests {
 
     use hex_literal::hex;
     use rift_lib::constants::MAX_LIQUIDITY_PROVIDERS;
-    use rift_lib::payment::compint_to_u64;
+    use rift_lib::payment::{compint_to_u64, assert_bitcoin_payment};
     use utils::{generate_merkle_proof_and_root, load_hex_bytes, to_little_endian};
 
     use sha2::{Digest, Sha256};
@@ -31,4 +31,12 @@ mod tests {
 
         assert!(99999 == compint_to_u64([0xFE, 0x9f, 0x86, 0x01, 0x00]));
     }
+
+    #[test]
+    fn assert_theo_btc_payment() {
+        assert_bitcoin_payment();
+
+    }
+
+
 }

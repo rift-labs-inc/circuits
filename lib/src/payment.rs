@@ -1,3 +1,9 @@
+use std::ops::Div;
+
+use crypto_bigint::{ArrayEncoding, NonZero, Zero, U256, CheckedMul, CheckedAdd};
+
+use crate::constants::MAX_LIQUIDITY_PROVIDERS;
+
 // Constants
 const MAX_SCRIPTSIG_SIZE: u64 = 22;
 const MAX_INPUT_COUNT: u64 = 1;
@@ -19,7 +25,7 @@ struct TxOut {
 }
 #[derive(Debug, Clone, Copy)]
 struct RiftLiquidityReservation {
-    amount_reserved: u64,
+    amount_reserved: U256,
     btc_exchange_rate: u64,
     script_pub_key: [u8; 22],
 }
@@ -59,33 +65,27 @@ fn extract_int_from_compint_pointer(data_pointer: u64, txn_data: &[u8]) -> (u64,
 }
 
 fn decode_liqudity_providers(
-    liquidity_providers_encoded: [[u8; 32]; MAX_LIQUIDITY_PROVIDERS],
+    liquidity_providers_encoded: [[[u8; 32]; 3]; MAX_LIQUIDITY_PROVIDERS],
 ) -> [RiftLiquidityReservation; MAX_LIQUIDITY_PROVIDERS] {
     let mut liquidity_providers = [RiftLiquidityReservation {
-        amount_reserved: 0,
+        amount_reserved: U256::ZERO,
         btc_exchange_rate: 0,
         script_pub_key: [0; 22],
     }; MAX_LIQUIDITY_PROVIDERS];
 
     for i in 0..MAX_LIQUIDITY_PROVIDERS {
-        let slot0: [u8; 31] = liquidity_providers_encoded[i][..31].try_into().unwrap();
-        let slot1: [u8; 31] = liquidity_providers_encoded[i][32..63].try_into().unwrap();
-        let slot2: [u8; 31] = liquidity_providers_encoded[i][64..95].try_into().unwrap();
-
         // Extract amount reserved
-        let mut value_bytes = [0u8; 8];
-        value_bytes.copy_from_slice(&slot0[24..]);
-        value_bytes[7] = slot1[0];
-        liquidity_providers[i].amount_reserved = u64::from_be_bytes(value_bytes);
+        liquidity_providers[i].amount_reserved =
+            U256::from_be_slice(&liquidity_providers_encoded[i][0]);
 
         // Extract BTC exchange rate
-        let mut btc_exchange_rate_bytes = [0u8; 8];
-        btc_exchange_rate_bytes[..7].copy_from_slice(&slot1[25..]);
-        btc_exchange_rate_bytes[6..].copy_from_slice(&slot2[..2]);
-        liquidity_providers[i].btc_exchange_rate = u64::from_be_bytes(btc_exchange_rate_bytes);
+        liquidity_providers[i].btc_exchange_rate =
+            u64::from_be_bytes(liquidity_providers_encoded[i][1][0..8].try_into().unwrap());
 
         // Extract script pub key
-        liquidity_providers[i].script_pub_key.copy_from_slice(&slot2[2..24]);
+        liquidity_providers[i]
+            .script_pub_key
+            .copy_from_slice(&liquidity_providers_encoded[i][2][0..22]);
     }
 
     liquidity_providers
@@ -99,7 +99,8 @@ fn assert_payment_utxos_exist(
     expected_payout: u64,
 ) {
     let mut data_pointer = 4;
-    let (input_counter, input_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
+    let (input_counter, input_counter_byte_len) =
+        extract_int_from_compint_pointer(data_pointer, txn_data);
     data_pointer += input_counter_byte_len as u64;
     println!("Input Counter: {}", input_counter);
     assert_eq!(input_counter, MAX_INPUT_COUNT);
@@ -107,44 +108,66 @@ fn assert_payment_utxos_exist(
     // Skip inputs
     for _ in 0..MAX_INPUT_COUNT {
         data_pointer += (TXID_LEN + VOUT_LEN) as u64;
-        let (sig_counter, sig_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
+        let (sig_counter, sig_counter_byte_len) =
+            extract_int_from_compint_pointer(data_pointer, txn_data);
         data_pointer += sig_counter as u64 + sig_counter_byte_len as u64 + SEQUENCE_LEN as u64;
     }
 
-    let (output_counter, output_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
+    let (output_counter, output_counter_byte_len) =
+        extract_int_from_compint_pointer(data_pointer, txn_data);
     assert!(output_counter <= MAX_LIQUIDITY_PROVIDERS as u64);
     assert!(lp_count + 1 <= output_counter);
     data_pointer += output_counter_byte_len as u64;
 
-    let mut calculated_payout: u128 = 0;
+    let mut calculated_payout: U256 = U256::ZERO;
 
     for i in 0..MAX_LIQUIDITY_PROVIDERS {
         if i < lp_count as usize {
-            let value = to_int::<8>(grab_bytes_le::<8>(&txn_data[data_pointer as usize..]));
+            let value = U256::from_u64(to_int::<8>(grab_bytes_le::<8>(
+                &txn_data[data_pointer as usize..],
+            )));
             data_pointer += AMOUNT_LEN as u64;
-            let (sig_counter, sig_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
+            let (sig_counter, sig_counter_byte_len) =
+                extract_int_from_compint_pointer(data_pointer, txn_data);
             data_pointer += sig_counter_byte_len as u64;
 
             assert_eq!(sig_counter, 22);
 
-            let locking_script = grab_bytes_be_conditional::<22>(
-                txn_data,
-                data_pointer,
-                |i| i < sig_counter as u64,
+            let locking_script =
+                grab_bytes_be_conditional::<22>(txn_data, data_pointer, |i| i < sig_counter as u64);
+
+            // value here is always in sats which has word size of 64 bits
+            let exchange_rate = NonZero::new(U256::from_u64(
+                reserved_liquidity_providers[i].btc_exchange_rate,
+            ))
+            .unwrap();
+
+            let amount_reserved =
+                NonZero::new(reserved_liquidity_providers[i].amount_reserved).unwrap();
+
+            assert_eq!(value, amount_reserved.div(exchange_rate));
+
+            assert_eq!(
+                locking_script,
+                reserved_liquidity_providers[i].script_pub_key
             );
 
-            assert_eq!(value, reserved_liquidity_providers[i].amount_reserved / reserved_liquidity_providers[i].btc_exchange_rate);
-            assert_eq!(locking_script, reserved_liquidity_providers[i].script_pub_key);
-            calculated_payout += (value as u128) * (reserved_liquidity_providers[i].btc_exchange_rate as u128);
+            let product = value
+                .checked_mul(&U256::from_u64(
+                    reserved_liquidity_providers[i].btc_exchange_rate,
+                ))
+                .unwrap();
 
+            calculated_payout = calculated_payout.checked_add(&product).unwrap();
             data_pointer += sig_counter;
         }
     }
 
-    assert_eq!(calculated_payout, expected_payout as u128);
+    assert_eq!(calculated_payout, U256::from_u64(expected_payout));
 
     data_pointer += AMOUNT_LEN as u64;
-    let (sig_counter, sig_counter_byte_len) = extract_int_from_compint_pointer(data_pointer, txn_data);
+    let (sig_counter, sig_counter_byte_len) =
+        extract_int_from_compint_pointer(data_pointer, txn_data);
     data_pointer += sig_counter_byte_len as u64;
     println!("sig_counter: {}", sig_counter);
 
@@ -155,25 +178,14 @@ fn assert_payment_utxos_exist(
     assert_eq!(txn_data[data_pointer as usize], OP_PUSHBYTES_32);
     data_pointer += 1;
 
-    let inscribed_order_nonce = grab_bytes_be_conditional::<32>(
-        txn_data,
-        data_pointer,
-        |i| i < sig_counter as u64,
-    );
+    let inscribed_order_nonce =
+        grab_bytes_be_conditional::<32>(txn_data, data_pointer, |i| i < sig_counter as u64);
     assert_eq!(inscribed_order_nonce, order_nonce);
 }
 
-fn assert_txn_data_is_equal(txn_data_encoded: [[u8; 32]; MAX_ENCODED_CHUNKS], txn_data: &[u8]) {
-    for (i, chunk) in txn_data_encoded.iter().enumerate() {
-        for (j, &byte) in chunk[..31].iter().enumerate() {
-            assert_eq!(txn_data[i * 31 + j], byte);
-        }
-    }
-}
-
-fn assert_bitcoin_payment(
+pub fn assert_bitcoin_payment(
     txn_data_no_segwit: &[u8],
-    lp_reservation_data_encoded: [[u8; 32]; MAX_LIQUIDITY_PROVIDERS],
+    lp_reservation_data_encoded: [[[u8; 32]; 3]; MAX_LIQUIDITY_PROVIDERS],
     order_nonce: [u8; 32],
     expected_payout: u64,
     lp_count: u64,
@@ -215,7 +227,3 @@ fn decode_field_encoded_hash(encoded: [[u8; 32]; 2]) -> [u8; 32] {
     result.copy_from_slice(&encoded[0]);
     result
 }
-
-// Constants (placeholders, define as needed)
-const MAX_LIQUIDITY_PROVIDERS: usize = 10;
-const MAX_ENCODED_CHUNKS: usize = 100;
