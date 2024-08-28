@@ -1,13 +1,11 @@
 use crate::tx_hash::sha256_hash;
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Serialize, Deserialize, Clone, Copy)]
+#[derive(Default, Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct MerkleProofStep {
     pub hash: [u8; 32],
     pub direction: bool,
 }
-
-
 
 pub fn hash_pairs(hash_1: [u8; 32], hash_2: [u8; 32]) -> [u8; 32] {
     // [0] convert hashes to little-endian
@@ -41,16 +39,13 @@ pub fn hash_pairs(hash_1: [u8; 32], hash_2: [u8; 32]) -> [u8; 32] {
 pub fn assert_merkle_proof_equality(
     merkle_root: [u8; 32],
     proposed_txn_hash: [u8; 32],
-    proposed_merkle_proof: [MerkleProofStep; 20],
+    proposed_merkle_proof: &[MerkleProofStep],
 ) {
-    let mut current_hash: [u8;32] = [0; 32];
-    for i in 0..32 {
-        current_hash[i] = proposed_txn_hash[31 - i];
-    }
+    let mut current_hash: [u8;32] = proposed_txn_hash;
 
     let zero_hash = [0; 32];
     let mut count = 0;
-    for i in 0..20 {
+    for i in 0..proposed_merkle_proof.len() {
         if proposed_merkle_proof[i].hash != zero_hash {
             let proof_step = proposed_merkle_proof[count];
             if proof_step.direction == true {
@@ -61,52 +56,8 @@ pub fn assert_merkle_proof_equality(
             count += 1;
         }
     }
+    println!("Current Hash: {:?}", current_hash);
+    println!("Merkle Root: {:?}", merkle_root);
 	assert!(current_hash == merkle_root, "Merkle proof verification failed");
 }
 
-pub fn generate_merkle_proof_and_root(leaves: Vec<[u8; 32]>, desired_leaf: [u8; 32]) -> (Vec<MerkleProofStep>, [u8; 32]) {
-    let mut current_level = leaves;
-    let mut proof: Vec<MerkleProofStep> = Vec::new();
-    let mut desired_index = current_level.iter().position(|&leaf| leaf == desired_leaf)
-        .expect("Desired leaf not found in the list of leaves");
-
-    while current_level.len() > 1 {
-        let mut next_level = Vec::new();
-        let mut i = 0;
-
-        while i < current_level.len() {
-            let left = current_level[i];
-            let right = if i + 1 < current_level.len() {
-                current_level[i + 1]
-            } else {
-                left
-            };
-
-            let parent_hash = hash_pairs(left, right);
-            next_level.push(parent_hash);
-
-            if i == desired_index || i + 1 == desired_index {
-                let proof_step = if i == desired_index {
-                    MerkleProofStep {
-                        hash: right,
-                        direction: true,
-                    }
-                } else {
-                    MerkleProofStep {
-                        hash: left,
-                        direction: false,
-                    }
-                };
-                proof.push(proof_step);
-                desired_index /= 2;
-            }
-
-            i += 2;
-        }
-
-        current_level = next_level;
-    }
-
-    let merkle_root = current_level[0];
-    (proof, merkle_root)
-}

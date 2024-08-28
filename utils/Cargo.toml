@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 thiserror = "1.0.63"
 rift-lib = { path = "../lib" }
-bitcoincore-rpc-async = { workspace = true }
+bitcoin = { workspace = true }
 

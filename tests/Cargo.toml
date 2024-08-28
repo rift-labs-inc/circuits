@@ -11,6 +11,10 @@ path = "src/tx_hash/main.rs"
 name = "sha256_merkle"
 path = "src/sha256_merkle/main.rs"
 
+[[test]]
+name = "bitcoin"
+path = "src/bitcoin/main.rs"
+
 
 [dependencies]
 rift-lib = { path = "../lib" }
@@ -18,4 +22,4 @@ utils = { path = "../utils" }
 hex-literal = {  workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
-bitcoincore-rpc-async = { workspace = true }
+bitcoin = { workspace = true }

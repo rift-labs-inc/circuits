@@ -1,6 +1,7 @@
 pub mod constants;
 pub mod tx_hash;
 pub mod sha256_merkle;
+pub mod bitcoin;
 
 use alloy_sol_types::sol;
 use constants::MAX_BLOCKS;

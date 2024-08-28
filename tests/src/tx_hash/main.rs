@@ -1,15 +1,16 @@
 #[cfg(test)]
 mod tests {
-    use bitcoincore_rpc_async::bitcoin::consensus::Encodable;
-    use bitcoincore_rpc_async::bitcoin::consensus::encode::{deserialize, serialize};
+    use bitcoin::consensus::Encodable;
+    use bitcoin::consensus::encode::{deserialize, serialize};
+    use bitcoin::Block;
+    use bitcoin::hashes::hex::FromHex;
+
     use rift_lib::tx_hash::{sha256_hash, get_natural_txid};
     use hex_literal::hex;
-    use utils::{to_hex_string, flip_endianness};
+    use utils::{to_hex_string, load_hex_bytes};
     use std::io::{Read, Write};
     use std::ops::Index;
     use std::{fs, println};
-    use bitcoincore_rpc_async::bitcoin::Block;
-    use bitcoincore_rpc_async::bitcoin::hashes::hex::FromHex;
 
 
     #[test]
@@ -29,13 +30,8 @@ mod tests {
     
     #[test]
     fn test_hash_loaded_block() {
-        let block_file = "data/block_858564.hex";
-        let block_bytes = &Vec::<u8>::from_hex(&fs::read_to_string(block_file).unwrap()).unwrap();
-        let block = deserialize::<Block>(&block_bytes).unwrap();
-        //println!("hash {:?}", block.block_hash());
-
-        let hash = get_natural_txid(&block_bytes);
-        //println!("hash: {:?}", to_hex_string(&flip_endianness::<32>(hash)));
+        
+        let block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
     }
 
 }
