@@ -100,7 +100,7 @@ mod tests {
 
         assert_bitcoin_payment(
             txn_data_no_segwit.as_slice(),
-            encode_liquidity_providers(&lp_reservations) ,
+            encode_liquidity_providers(&lp_reservations).to_vec(),
             order_nonce,
             299505000000000,
             lp_reservations.len() as u64
