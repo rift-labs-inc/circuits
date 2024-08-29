@@ -22,7 +22,7 @@ pub fn main() {
         merkle_root: FixedBytes::from(circuit_public_input.merkle_root),
         lp_reservation_hash: FixedBytes::from(circuit_public_input.lp_reservation_hash),
         order_nonce: FixedBytes::from(circuit_public_input.order_nonce),
-        expected_payout: U256::from_be_slice(&circuit_public_input.expected_payout),
+        expected_payout: circuit_public_input.expected_payout,
         lp_count: circuit_public_input.lp_count,
         retarget_block_hash: FixedBytes::from(circuit_public_input.retarget_block_hash),
         safe_block_height: circuit_public_input.safe_block_height,
