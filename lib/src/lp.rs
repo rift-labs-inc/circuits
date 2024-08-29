@@ -75,11 +75,10 @@ pub fn encode_liquidity_providers(
     liquidity_providers_encoded
 }
 
-pub fn assert_lp_hash(
-    lp_reservation_hash: [u8; 32],
+pub fn compute_lp_hash(
     lp_reservation_data_encoded: &Vec<[[u8; 32]; 3]>,
     lp_count: u32
-) {
+) -> [u8; 32] {
     assert!(lp_reservation_data_encoded.len() <= MAX_LIQUIDITY_PROVIDERS, "Too many liquidity providers");
     let mut intermediate_vault_hash = [0u8; 32];
     
@@ -88,5 +87,14 @@ pub fn assert_lp_hash(
         intermediate_vault_hash = Sha256::digest(hashable_chunk).into();
     }
     
-    assert_eq!(intermediate_vault_hash, lp_reservation_hash, "Invalid LP hash");
+    intermediate_vault_hash
+}
+
+pub fn assert_lp_hash(
+    lp_reservation_hash: [u8; 32],
+    lp_reservation_data_encoded: &Vec<[[u8; 32]; 3]>,
+    lp_count: u32
+) {
+    assert!(lp_reservation_data_encoded.len() <= MAX_LIQUIDITY_PROVIDERS, "Too many liquidity providers");
+    assert_eq!(compute_lp_hash(lp_reservation_data_encoded, lp_count), lp_reservation_hash, "Invalid LP hash");
 }

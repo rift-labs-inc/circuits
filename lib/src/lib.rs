@@ -27,6 +27,42 @@ pub struct CircuitPublicValues {
     pub block_hashes: [[u8; 32]; MAX_BLOCKS],
 }
 
+impl CircuitPublicValues {
+    pub fn new(
+        natural_txid: [u8; 32],
+        merkle_root: [u8; 32],
+        lp_reservation_hash: [u8; 32],
+        order_nonce: [u8; 32],
+        expected_payout: u64,
+        lp_count: u64,
+        retarget_block_hash: [u8; 32],
+        safe_block_height: u64,
+        safe_block_height_delta: u64,
+        confirmation_block_height_delta: u64,
+        retarget_block_height: u64,
+        block_hashes: Vec<[u8; 32]>,
+    ) -> Self {
+        let mut padded_block_hashes = [[0u8; 32]; MAX_BLOCKS];
+        for (i, block_hash) in block_hashes.iter().enumerate() {
+            padded_block_hashes[i] = *block_hash;
+        }
+        
+        Self {
+            natural_txid,
+            merkle_root,
+            lp_reservation_hash,
+            order_nonce,
+            expected_payout,
+            lp_count,
+            retarget_block_hash,
+            safe_block_height,
+            safe_block_height_delta,
+            confirmation_block_height_delta,
+            retarget_block_height,
+            block_hashes: padded_block_hashes
+        }
+    }
+}
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct CircuitInput {
@@ -37,6 +73,26 @@ pub struct CircuitInput {
     pub lp_reservation_data: Vec<[[u8; 32]; 3]>,
     pub blocks: Vec<btc_light_client::Block>,
     pub retarget_block: btc_light_client::Block,
+}
+
+impl CircuitInput {
+    pub fn new(
+        public_values: CircuitPublicValues,
+        txn_data_no_segwit: Vec<u8>,
+        merkle_proof: Vec<MerkleProofStep>,
+        lp_reservation_data: Vec<[[u8; 32]; 3]>,
+        blocks: Vec<btc_light_client::Block>,
+        retarget_block: btc_light_client::Block,
+    ) -> Self {
+        Self {
+            public_values,
+            txn_data_no_segwit,
+            merkle_proof,
+            lp_reservation_data,
+            blocks,
+            retarget_block,
+        }
+}
 }
 
 sol! {

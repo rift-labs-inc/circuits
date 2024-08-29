@@ -66,21 +66,21 @@ mod tests {
             },
         ];
 
-        let proposed_block_height = 854136;
-        let proposed_block_hash = hex!("00000000000000000003679bc829350e7b26cc98d54030c2edc5e470560c1fdc");
-        let proposed_txid = hex!("8df99d697780166f12df68b1e2410a909374b6414da57a1a65f3b84eb8a4dd0f");
+        let utilized_block_height = 854136;
+        let utilized_block_hash = hex!("00000000000000000003679bc829350e7b26cc98d54030c2edc5e470560c1fdc");
+        let utilized_txid = hex!("8df99d697780166f12df68b1e2410a909374b6414da57a1a65f3b84eb8a4dd0f");
         let txvout = 4;
-        let block = deserialize::<Block>(&load_hex_bytes(format!("data/block_{proposed_block_height}.hex").as_str())).unwrap();
+        let block = deserialize::<Block>(&load_hex_bytes(format!("data/block_{utilized_block_height}.hex").as_str())).unwrap();
 
-        assert_eq!(to_little_endian(block.header.block_hash().to_byte_array()), proposed_block_hash);
-        let utilized_transaction = block.txdata.iter().find(|tx| to_little_endian(tx.compute_txid().to_byte_array()) == proposed_txid);
+        assert_eq!(to_little_endian(block.header.block_hash().to_byte_array()), utilized_block_hash);
+        let utilized_transaction = block.txdata.iter().find(|tx| to_little_endian(tx.compute_txid().to_byte_array()) == utilized_txid);
         assert!(utilized_transaction.is_some(), "Proposed transaction not found in the block");
         
         let utilized_transaction = utilized_transaction.unwrap();
  
         assert_eq!(
             to_little_endian(utilized_transaction.compute_txid().to_byte_array()),
-            proposed_txid,
+            utilized_txid,
             "Proposed transaction ID does not match the utilized transaction ID",
         );
 
@@ -88,7 +88,7 @@ mod tests {
         let unbroadcast_txn = build_rift_payment_transaction(
             order_nonce,
             &lp_reservations,
-            proposed_txid,
+            utilized_txid,
             &utilized_transaction,
             txvout,
             &wallet,

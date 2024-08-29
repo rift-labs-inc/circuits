@@ -8,6 +8,7 @@
 cache
 .noir_cache
 artifact_cache
+tests/data
 
 # Cargo build
 **/target
