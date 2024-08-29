@@ -1,8 +1,0 @@
-[package]
-name = "recursive_sha"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.25.0"
-
-[dependencies]
-rift_lib = { path = "../lib" }

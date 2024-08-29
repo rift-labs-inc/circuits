@@ -1,59 +1,41 @@
-# circuits
+# circuits 
 
-## Quickstart Dependencies
-<details>
-<summary>Linux Dependencies</summary>
+## Requirements
 
-```
-sudo apt install libgmp3-dev build-essential
-```
-</details>
+- [Rust](https://rustup.rs/)
+- [SP1](https://succinctlabs.github.io/sp1/getting-started/install.html)
 
-**Install**<br>
-- [Pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#automatic-installer)<br>
-- [Noir](https://noir-lang.org/docs/getting_started/installation/#installing-noirup)<br>
+### Directory Overview
 
-**Then run**<br>
-```
-noirup --version 0.30.0
-cd circuits/lp_hash_verification && $HOME/.nargo/bin/nargo info # trigger install of barratenberg
-pyenv install 3.11
-pyenv virtualenv 3.11 rift 
-python -m pip install -r requirements.txt
-```
+| Directory | Purpose | Contents |
+|-----------|---------|----------|
+| `lib/`    | Internal Library | Encapsulates all circuit business logic |
+| `program/`| Executable Wrapper | Combines SP1 with our circuit library to create the program executable |
+| `script/` | Build Utilities | Contains scripts for building vkeys, proofs and evm artifacts |
+| `utils/`  | Client Library | Client-facing library for creating proofs and interacting with the circuit |
+| `tests/`  | Testing Suite | Unit and Integration tests |
 
-
-### Tests
-To test any of the scattered unit tests, `cd` into the directory of the subcircuit you want to test and run:
-```
-nargo test --show-output
+## Run Unit Tests
+```sh
+./download_test_blocks.sh
+cargo test -p tests
 ```
 
-E2E tests can be run from the root directory:
-```
-python tests/block_circuit_test.py
-python tests/payment_circuit_test.py
-python tests/lp_circuit_test.py
-python tests/sha256_circuit_test.py
-python tests/giga_circuit_test.py
+### Run Specific Test
+```sh
+cargo test -p tests -- <test_name>
+# <tx_hash | sha256_merkle | bitcoin | lp_hash | payment | giga>
 ```
 
-
-### Create Subcircuit Verification Keys
-The `Giga` circuit needs verification key hashes to validate the subcircuits it recurses, these can be generated with the following commands.
-
-#### Standard Recursive Circuits 
-Generates the verification key hashes for the rift specific recursive circuits (lp hash, block, payment), slow to run.
-```
-python scripts/generate_subcircuit_verification_keys.py
+## Generate Test Plonk Proof
+```sh
+cargo run --release --bin plonk_test
 ```
 
-#### Recursive SHA256 Circuit
-`n` specifies which chunk (1000 circuits) from 0-6 inclusive to generate verification keys for.
-1. Generate verification keys and hashes<br>
-    ```python scripts/generate_recursive_sha_vkeys.py <chunk_number>```
+### Retrieve the Verification Key
 
-2. Create hash list<br>
-    ```python scripts/create_recursive_sha256_hashlist.py 1> ./circuits/giga/src/sha256_circuit_hashes.nr```
+To retrieve your `programVKey` for your on-chain contract, run the following command:
 
-
+```sh
+cargo run --release --bin vkey
+```
