@@ -18,7 +18,7 @@
 
 ### Run Unit Tests
 ```sh
-./download_test_blocks.sh
+./download_test_blocks.s
 cargo test -p tests
 ```
 
@@ -40,3 +40,4 @@ To retrieve your `programVKey` for your on-chain contract, run the following com
 ```sh
 cargo run --release --bin vkey
 ```
+
