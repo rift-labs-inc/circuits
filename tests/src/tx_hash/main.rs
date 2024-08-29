@@ -1,16 +1,16 @@
 #[cfg(test)]
 mod tests {
-    use bitcoin::consensus::Encodable;
-    use bitcoin::consensus::encode::{deserialize, serialize};
+    
+    use bitcoin::consensus::encode::{deserialize};
     use bitcoin::Block;
-    use bitcoin::hashes::hex::FromHex;
+    
 
     use rift_lib::tx_hash::{sha256_hash, get_natural_txid};
     use hex_literal::hex;
-    use utils::{to_hex_string, load_hex_bytes};
-    use std::io::{Read, Write};
-    use std::ops::Index;
-    use std::{fs, println};
+    use utils::{load_hex_bytes};
+    
+    
+    
 
 
     #[test]

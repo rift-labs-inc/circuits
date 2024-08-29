@@ -1,26 +1,25 @@
 #[cfg(test)]
 mod tests {
-    use bitcoin::consensus::encode::{deserialize, serialize};
-    use bitcoin::consensus::Encodable;
+    use bitcoin::consensus::encode::{deserialize};
+    
     use bitcoin::hashes::Hash;
-    use bitcoin::hex::{DisplayHex, FromHex};
+    
     use bitcoin::Block;
 
     use crypto_bigint::U256;
     use hex_literal::hex;
-    use rift_lib::constants::MAX_LIQUIDITY_PROVIDERS;
+    
     use rift_lib::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
-    use rift_lib::payment::{assert_bitcoin_payment, compint_to_u64};
+    
     use rift_lib::{validate_rift_transaction, CircuitInput, CircuitPublicValues};
     use utils::transaction::{
-        build_rift_payment_transaction, serialize_no_segwit, P2WPKHBitcoinWallet,
+        serialize_no_segwit, P2WPKHBitcoinWallet,
     };
     use utils::{
-        generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes,
-        to_hex_string, to_little_endian, to_rift_optimized_block,
+        generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes, to_little_endian, to_rift_optimized_block,
     };
 
-    use sha2::{Digest, Sha256};
+    use sha2::{Digest};
 
     fn get_test_wallet() -> P2WPKHBitcoinWallet {
         P2WPKHBitcoinWallet::from_secret_key(

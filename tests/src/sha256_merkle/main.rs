@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use bitcoin::consensus::encode::{deserialize, serialize};
+    use bitcoin::consensus::encode::{deserialize};
     use bitcoin::hashes::Hash;
-    use bitcoin::hex::{DisplayHex, FromHex};
+    use bitcoin::hex::{DisplayHex};
     use bitcoin::Block;
 
     use rift_lib::sha256_merkle::{
-        assert_merkle_proof_equality, MerkleProofStep
+        assert_merkle_proof_equality
     };
     use utils::{to_little_endian, load_hex_bytes, generate_merkle_proof_and_root};
 
