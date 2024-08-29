@@ -139,4 +139,9 @@ mod tests {
             to_rift_optimized_block(retarget_block_height, &mined_retarget_block),
         ));
     }
+
+    #[test]
+    fn assert_mainnet_rift_txn_proof(){
+        
+    }
 }

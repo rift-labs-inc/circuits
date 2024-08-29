@@ -1,7 +1,7 @@
 use crypto_bigint::{NonZero, Zero, U256, CheckedMul, CheckedAdd};
-use std::ops::Div;
 
 use crate::{constants::MAX_LIQUIDITY_PROVIDERS, lp::{decode_liqudity_providers, LiquidityReservation}};
+use std::ops::Div;
 
 // Constants
 const MAX_SCRIPTSIG_SIZE: u64 = 22;
