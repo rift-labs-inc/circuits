@@ -70,7 +70,6 @@ fn assert_payment_utxos_exist(
     let (input_counter, input_counter_byte_len) =
         extract_int_from_compint_pointer(data_pointer, txn_data);
     data_pointer += input_counter_byte_len as u64;
-    println!("Input Counter: {}", input_counter);
     assert_eq!(input_counter, MAX_INPUT_COUNT);
 
     // Skip inputs
@@ -133,7 +132,6 @@ fn assert_payment_utxos_exist(
 
     assert_eq!(calculated_payout, U256::from_u64(expected_payout));
 
-    println!("LP payout confirmed");
 
     data_pointer += AMOUNT_LEN as u64;
     let (sig_counter, sig_counter_byte_len) =
@@ -151,7 +149,6 @@ fn assert_payment_utxos_exist(
         grab_bytes_be_conditional::<32>(txn_data, data_pointer, |i| i < sig_counter as u64);
     assert_eq!(inscribed_order_nonce, order_nonce);
 
-    println!("Order nonce matches");
 }
 
 pub fn assert_bitcoin_payment(

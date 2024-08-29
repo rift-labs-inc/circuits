@@ -1,25 +1,30 @@
 #[cfg(test)]
 mod tests {
-    use bitcoin::consensus::encode::{deserialize};
-    
+    use bitcoin::consensus::encode::deserialize;
+
     use bitcoin::hashes::Hash;
-    
+
     use bitcoin::Block;
 
     use crypto_bigint::U256;
     use hex_literal::hex;
-    
+
     use rift_lib::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
-    
+
     use rift_lib::{validate_rift_transaction, CircuitInput, CircuitPublicValues};
-    use utils::transaction::{
-        serialize_no_segwit, P2WPKHBitcoinWallet,
-    };
+    use utils::transaction::{serialize_no_segwit, P2WPKHBitcoinWallet};
     use utils::{
-        generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes, to_little_endian, to_rift_optimized_block,
+        generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes,
+        to_little_endian, to_rift_optimized_block,
     };
 
-    use sha2::{Digest};
+    use clap::Parser;
+    use sp1_sdk::{ProverClient, SP1Stdin};
+
+    /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
+    pub const MAIN_ELF: &[u8] = include_bytes!("../../../elf/riscv32im-succinct-zkvm-elf");
+
+    use sha2::Digest;
 
     fn get_test_wallet() -> P2WPKHBitcoinWallet {
         P2WPKHBitcoinWallet::from_secret_key(
@@ -28,8 +33,7 @@ mod tests {
         )
     }
 
-    #[test]
-    fn assert_mainnet_rift_txn() {
+    fn get_test_case_circuit_input() -> CircuitInput {
         let order_nonce = hex!("f0ad57e677a89d2c2aaae4c5fd52ba20c63c0a05c916619277af96435f874c64");
         let lp_reservations: Vec<LiquidityReservation> = vec![
             LiquidityReservation {
@@ -106,7 +110,7 @@ mod tests {
             "Invalid merkle root"
         );
 
-        validate_rift_transaction(CircuitInput::new(
+        CircuitInput::new(
             CircuitPublicValues::new(
                 to_little_endian(mined_transaction.compute_txid().to_byte_array()),
                 to_little_endian(mined_block.header.merkle_root.to_byte_array()),
@@ -136,11 +140,32 @@ mod tests {
                 .map(|(i, block)| to_rift_optimized_block(mined_block_height - 1 + i as u64, block))
                 .collect(),
             to_rift_optimized_block(retarget_block_height, &mined_retarget_block),
-        ));
+        )
     }
 
     #[test]
-    fn assert_mainnet_rift_txn_proof(){
-        
+    fn test_mainnet_rift_txn() {
+        validate_rift_transaction(get_test_case_circuit_input());
+    }
+
+    #[test]
+    fn test_circuit_input_serialization_functional() {
+        let circuit_input = get_test_case_circuit_input();
+
+        println!("Circuit input generated successfully.");
+
+        // Serialize the circuit input
+        let serialized = bincode::serialize(&circuit_input).unwrap_or_else(|e| {
+            panic!("Failed to serialize circuit input: {}", e);
+        });
+        println!("Serialized data size: {} bytes", serialized.len());
+
+        // Deserialize back to CircuitInput
+        let deserialized: CircuitInput = bincode::deserialize(&serialized).unwrap();
+
+        println!("Serialization and deserialization successful!");
+        println!("Deserialization successful!");
+
+        println!("Serialization test passed successfully!");
     }
 }

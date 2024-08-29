@@ -37,3 +37,9 @@ serde = { workspace = true }
 bitcoin = { workspace = true }
 sha2 = { workspace = true }
 crypto-bigint = { workspace = true }
+sp1-sdk = { workspace = true }
+clap = { workspace = true }
+bincode = { workspace = true }
+
+[build-dependencies]
+sp1-helper = "1.1.0"

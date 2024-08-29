@@ -10,56 +10,27 @@
 | Directory | Purpose | Contents |
 |-----------|---------|----------|
 | `lib/`    | Internal Library | Encapsulates all circuit business logic |
-| `program/`| Executable Wrapper | Combines SP1 with our circuit library to program executable |
-| `script/` | Build Utilities | Contains scripts for building circuit binaries and proofs |
+| `program/`| Executable Wrapper | Combines SP1 with our circuit library to create the program executable |
+| `script/` | Build Utilities | Contains scripts for building vkeys, proofs and evm artifacts |
 | `utils/`  | Client Library | Client-facing library for creating proofs and interacting with the circuit |
-| `tests/`  | Testing Suite | Integration tests |
+| `tests/`  | Testing Suite | Unit and Integration tests |
 
-## Run Tests 
+## Run Unit Tests
 ```sh
 ./download_test_blocks.sh
 cargo test -p tests
 ```
 
-**Default SP1 Documentation**
-
-There are three main ways to run this project: execute a program, generate a core proof, and
-generate an EVM-compatible proof.
-
-### Execute the Program
-
-To run the program without generating a proof:
-
+### Run Specific Test
 ```sh
-cd script
-cargo run --release -- --execute
+cargo test -p tests -- <test_name>
+# <tx_hash | sha256_merkle | bitcoin | lp_hash | payment | giga>
 ```
 
-This will execute the program and display the output.
-
-### Generate a Core Proof
-
-To generate a core proof for your program:
-
+## Generate Test Plonk Proof
 ```sh
-cd script
-cargo run --release -- --prove
+cargo run --release --bin plonk_test
 ```
-
-### Generate an EVM-Compatible (PLONK) Proof
-
-> [!WARNING]
-> You will need at least 128GB RAM to generate the PLONK proof.
-
-To generate a PLONK proof that is small enough to be verified on-chain and verifiable by the EVM:
-
-```sh
-cd script
-cargo run --release --bin evm
-```
-
-This command also generates a fixture that can be used to test the verification of SP1 zkVM proofs
-inside Solidity.
 
 ### Retrieve the Verification Key
 
@@ -67,24 +38,4 @@ To retrieve your `programVKey` for your on-chain contract, run the following com
 
 ```sh
 cargo run --release --bin vkey
-```
-
-## Using the Prover Network
-
-We highly recommend using the Succinct prover network for any non-trivial programs or benchmarking purposes. For more information, see the [setup guide](https://docs.succinct.xyz/prover-network/setup.html).
-
-To get started, copy the example environment file:
-
-```sh
-cp .env.example .env
-```
-
-Then, set the `SP1_PROVER` environment variable to `network` and set the `SP1_PRIVATE_KEY`
-environment variable to your whitelisted private key.
-
-For example, to generate an EVM-compatible proof using the prover network, run the following
-command:
-
-```sh
-SP1_PROVER=network SP1_PRIVATE_KEY=... cargo run --release --bin evm
 ```
