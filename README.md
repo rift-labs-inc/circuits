@@ -15,7 +15,13 @@
 | `utils/`  | Client Library | Client-facing library for creating proofs and interacting with the circuit |
 | `tests/`  | Testing Suite | Integration tests |
 
-## Running the Project
+## Run Tests 
+```sh
+./download_test_blocks.sh
+cargo test -p tests
+```
+
+**Default SP1 Documentation**
 
 There are three main ways to run this project: execute a program, generate a core proof, and
 generate an EVM-compatible proof.
