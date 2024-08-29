@@ -5632,6 +5632,7 @@ dependencies = [
  "rift-lib",
  "serde",
  "serde_json",
+ "sp1-sdk",
  "thiserror",
 ]
 

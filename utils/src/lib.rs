@@ -1,4 +1,5 @@
 pub mod transaction;
+pub mod proof;
 
 mod errors;
 use bitcoin::hashes::Hash;
