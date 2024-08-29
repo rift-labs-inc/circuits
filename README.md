@@ -16,7 +16,7 @@
 | `utils/`  | Client Library | Client-facing library for creating proofs and interacting with the circuit |
 | `tests/`  | Testing Suite | Unit and Integration tests |
 
-## Run Unit Tests
+### Run Unit Tests
 ```sh
 ./download_test_blocks.sh
 cargo test -p tests
