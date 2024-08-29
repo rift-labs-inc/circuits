@@ -4,6 +4,7 @@
 
 - [Rust](https://rustup.rs/)
 - [SP1](https://succinctlabs.github.io/sp1/getting-started/install.html)
+- [Docker](https://docs.docker.com/get-docker/)
 
 ### Directory Overview
 
