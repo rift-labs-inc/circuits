@@ -24,11 +24,11 @@ cargo test -p tests
 
 ### Run Specific Test
 ```sh
-cargo test -p tests -- <test_name>
+cargo test -p tests --test <test_name>
 # <tx_hash | sha256_merkle | bitcoin | lp_hash | payment | giga>
 ```
 
-## Generate Test Plonk Proof
+### Generate Test Plonk Proof
 ```sh
 cargo run --release --bin plonk_test
 ```
