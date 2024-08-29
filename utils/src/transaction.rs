@@ -1,15 +1,13 @@
-use bitcoin::opcodes::all::{OP_PUSHBYTES_32, OP_RETURN};
+use bitcoin::opcodes::all::{OP_RETURN};
 use bitcoin::locktime::absolute::LockTime;
 use bitcoin::script::Builder;
 use bitcoin::{
     transaction, Address, Amount, CompressedPublicKey, Network, OutPoint, PrivateKey, Script, ScriptBuf, Sequence, TxOut, Txid
 };
-use bitcoin::psbt::Psbt;
 use bitcoin::{
     Transaction, TxIn, Witness, EcdsaSighashType, PublicKey,
-    consensus::encode::serialize,
-    hashes::{hash160, Hash, sha256d, HashEngine},
-    secp256k1::{self, Message, Secp256k1, SecretKey},
+    hashes::{Hash, HashEngine},
+    secp256k1::{self, Secp256k1, SecretKey},
     consensus::Encodable
 };
 use bitcoin::sighash::SighashCache;

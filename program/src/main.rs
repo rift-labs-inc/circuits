@@ -1,7 +1,7 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use alloy_sol_types::private::{FixedBytes, U256};
+use alloy_sol_types::private::{FixedBytes};
 use alloy_sol_types::SolType;
 use rift_lib::{
     validate_rift_transaction, CircuitInput, SolidityPublicValues,

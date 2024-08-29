@@ -6,8 +6,7 @@ pub mod lp;
 pub mod payment;
 
 use alloy_sol_types::sol;
-use constants::{MAX_BLOCKS, MAX_LIQUIDITY_PROVIDERS};
-use crypto_bigint::U256;
+use constants::{MAX_BLOCKS};
 use serde::{Deserialize, Serialize};
 use sha256_merkle::MerkleProofStep;
 

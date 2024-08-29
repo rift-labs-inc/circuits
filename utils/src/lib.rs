@@ -2,7 +2,6 @@ pub mod transaction;
 
 mod errors;
 use bitcoin::hashes::Hash;
-use errors::{BitcoinRpcError};
 use std::fmt::Write;
 use bitcoin::hashes::hex::FromHex;
 

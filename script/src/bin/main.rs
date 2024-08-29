@@ -10,9 +10,7 @@
 //! RUST_LOG=info cargo run --release -- --prove
 //! ```
 
-use alloy_sol_types::SolType;
 use clap::Parser;
-use rift_lib::SolidityPublicValues;
 use sp1_sdk::{ProverClient, SP1Stdin};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
