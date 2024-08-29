@@ -89,6 +89,23 @@ pub struct CircuitPublicValues {
     pub block_hashes: [[u8; 32]; MAX_BLOCKS],
 }
 
+sol! {
+    /// The public values encoded as a struct that can be easily deserialized inside Solidity.
+    struct SolidityPublicValues {
+        bytes32 natural_txid;
+        bytes32 lp_reservation_hash;
+        bytes32 order_nonce;
+        uint64 expected_payout;
+        uint64 lp_count;
+        bytes32 retarget_block_hash;
+        uint64 safe_block_height;
+        uint64 safe_block_height_delta;
+        uint64 confirmation_block_height_delta;
+        uint64 retarget_block_height;
+        bytes32[] block_hashes;
+    }
+}
+
 impl Default for CircuitPublicValues {
     fn default() -> Self {
         CircuitPublicValues {
@@ -226,23 +243,6 @@ impl Default for CircuitInput {
     }
 }
 
-sol! {
-    /// The public values encoded as a struct that can be easily deserialized inside Solidity.
-    struct SolidityPublicValues {
-        bytes32 natural_txid;
-        bytes32 merkle_root;
-        bytes32 lp_reservation_hash;
-        bytes32 order_nonce;
-        uint64 expected_payout;
-        uint64 lp_count;
-        bytes32 retarget_block_hash;
-        uint64 safe_block_height;
-        uint64 safe_block_height_delta;
-        uint64 confirmation_block_height_delta;
-        uint64 retarget_block_height;
-        bytes32[] block_hashes;
-    }
-}
 
 pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicValues {
     let blocks = circuit_input.blocks[0..(circuit_input.utilized_blocks as usize)].to_vec();

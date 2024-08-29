@@ -19,7 +19,6 @@ pub fn main() {
     // Encode the public values of the program.
     let bytes = SolidityPublicValues::abi_encode(&SolidityPublicValues {
         natural_txid: FixedBytes::from(circuit_public_input.natural_txid),
-        merkle_root: FixedBytes::from(circuit_public_input.merkle_root),
         lp_reservation_hash: FixedBytes::from(circuit_public_input.lp_reservation_hash),
         order_nonce: FixedBytes::from(circuit_public_input.order_nonce),
         expected_payout: circuit_public_input.expected_payout,
