@@ -118,7 +118,7 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
     // Block Verification
     btc_light_client::assert_blockchain(
         circuit_input.public_values.block_hashes
-            [0..(circuit_input.public_values.safe_block_height_delta as usize)]
+            [0..(circuit_input.blocks.len() as usize)]
             .to_vec(),
         circuit_input.public_values.safe_block_height,
         circuit_input.public_values.retarget_block_hash,
@@ -127,9 +127,12 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
         circuit_input.retarget_block,
     );
 
+    let mut txid = tx_hash::get_natural_txid(&circuit_input.txn_data_no_segwit);
+    txid.reverse();
+
     // Transaction Hash Verification
     assert_eq!(
-        tx_hash::get_natural_txid(&circuit_input.txn_data_no_segwit),
+        txid,
         circuit_input.public_values.natural_txid,
         "Invalid transaction hash"
     );
@@ -145,7 +148,7 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
     lp::assert_lp_hash(
         circuit_input.public_values.lp_reservation_hash,
         &circuit_input.lp_reservation_data,
-        circuit_input.lp_reservation_data.len() as u32
+        circuit_input.public_values.lp_count as u32
     );
 
     // Payment Verification 

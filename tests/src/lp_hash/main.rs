@@ -36,9 +36,8 @@ mod tests {
             hex!("0000000000000000000000000000000000000000000000000000000000000045"),
             hex!("0014841b80d2cc75f5345c482af96294d04fdd66b2b700000000000000000000"),
         ];
-        let padded_lp_data = [lp_data; MAX_LIQUIDITY_PROVIDERS];
         let expected_vault_hash: [u8; 32] = hex!("050dd95440fe766ea732543cdf44af1f715b59c7d53c42928f52bb2e91a7af37");
-        assert_lp_hash(expected_vault_hash, padded_lp_data, 1);
+        assert_lp_hash(expected_vault_hash, &[lp_data].to_vec(), 1);
     }
 
 }

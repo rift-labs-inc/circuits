@@ -62,7 +62,6 @@ pub fn assert_pow(
     proposed_block: &Block,
     proposed_target: U256,
 ) {
-    println!("\nVerifying PoW...");
     let calculated_block_hash = proposed_block.compute_block_hash();
 
     // [2] verify proposed block hash matches calculated block hash
@@ -71,7 +70,6 @@ pub fn assert_pow(
     // [3] verify PoW -> block hash <= proposed target
     assert!(U256::from_be_slice(proposed_block_hash).le(&proposed_target), "PoW invalid hash < target");
 
-    println!("\nPoW verified!\n");
 }
 
 pub fn to_little_endian<const N: usize>(input: [u8; N]) -> [u8; N] {

@@ -56,8 +56,6 @@ pub fn assert_merkle_proof_equality(
             count += 1;
         }
     }
-    println!("Current Hash: {:?}", current_hash);
-    println!("Merkle Root: {:?}", merkle_root);
-	assert!(current_hash == merkle_root, "Merkle proof verification failed");
+	  assert!(current_hash == merkle_root, "Merkle proof verification failed");
 }
 

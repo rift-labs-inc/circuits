@@ -96,5 +96,7 @@ pub fn assert_lp_hash(
     lp_count: u32
 ) {
     assert!(lp_reservation_data_encoded.len() <= MAX_LIQUIDITY_PROVIDERS, "Too many liquidity providers");
+    println!("Lp Reservation Hash: {:?}", lp_reservation_hash);
+    println!("Lp Reservation Data Encoded: {:?}", lp_count);
     assert_eq!(compute_lp_hash(lp_reservation_data_encoded, lp_count), lp_reservation_hash, "Invalid LP hash");
 }
