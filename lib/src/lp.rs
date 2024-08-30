@@ -37,7 +37,7 @@ pub fn decode_liqudity_providers(
 
         // Extract BTC exchange rate
         liquidity_providers[i].btc_exchange_rate =
-            u64::from_be_bytes(liquidity_providers_encoded[i][1][0..8].try_into().unwrap());
+            u64::from_be_bytes(liquidity_providers_encoded[i][1][32-8..].try_into().unwrap());
 
         // Extract script pub key
         liquidity_providers[i]
@@ -59,7 +59,7 @@ pub fn encode_liquidity_providers(
         liquidity_providers_encoded[i][0] = liquidity_providers[i].amount_reserved.to_be_bytes();
 
         // Encode BTC exchange rate
-        liquidity_providers_encoded[i][1][0..8].copy_from_slice(
+        liquidity_providers_encoded[i][1][32-8..].copy_from_slice(
             &liquidity_providers[i].btc_exchange_rate.to_be_bytes(),
         );
 

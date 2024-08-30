@@ -1,11 +1,9 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use alloy_sol_types::private::{FixedBytes};
+use alloy_sol_types::private::FixedBytes;
 use alloy_sol_types::SolType;
-use rift_lib::{
-    validate_rift_transaction, CircuitInput, SolidityPublicValues,
-};
+use rift_lib::{validate_rift_transaction, CircuitInput, SolidityPublicValues};
 
 pub fn main() {
     // Read an input to the program.
@@ -28,8 +26,9 @@ pub fn main() {
         safe_block_height_delta: circuit_public_input.safe_block_height_delta,
         confirmation_block_height_delta: circuit_public_input.confirmation_block_height_delta,
         retarget_block_height: circuit_public_input.retarget_block_height,
-        block_hashes: circuit_public_input
-            .block_hashes
+        block_hashes: circuit_public_input.block_hashes
+            [0..(circuit_input.utilized_blocks as usize)]
+            .to_vec()
             .iter()
             .map(|x| FixedBytes::from(*x))
             .collect::<Vec<_>>(),

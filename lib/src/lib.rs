@@ -72,7 +72,7 @@ mod arrays {
 }
 
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
 pub struct CircuitPublicValues {
     pub natural_txid: [u8; 32],
     pub merkle_root: [u8; 32],
@@ -162,7 +162,7 @@ impl CircuitPublicValues {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct CircuitInput {
     pub public_values: CircuitPublicValues,
     #[serde(with = "arrays")]

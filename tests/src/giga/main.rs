@@ -109,6 +109,7 @@ mod tests {
             to_little_endian(mined_block.compute_merkle_root().unwrap().to_byte_array()),
             "Invalid merkle root"
         );
+        println!("Merkle proof generated successfully.");
 
         CircuitInput::new(
             CircuitPublicValues::new(

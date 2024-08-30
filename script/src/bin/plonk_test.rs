@@ -2,6 +2,8 @@ use bitcoin::consensus::encode::deserialize;
 
 use bitcoin::hashes::Hash;
 
+use bitcoin::hex::display::DisplayArray;
+use bitcoin::hex::DisplayHex;
 use bitcoin::Block;
 
 use crypto_bigint::U256;
@@ -14,7 +16,7 @@ use serde::Serialize;
 use utils::transaction::{serialize_no_segwit, P2WPKHBitcoinWallet};
 use utils::{
     generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes,
-    to_little_endian, to_rift_optimized_block,
+    to_hex_string, to_little_endian, to_rift_optimized_block,
 };
 
 use clap::Parser;
@@ -60,6 +62,14 @@ fn get_test_case_circuit_input() -> CircuitInput {
         deserialize::<Block>(&load_hex_bytes("tests/data/block_854379.hex")).unwrap(),
     ];
 
+    println!(
+        "Mined Block Hashes {:?}",
+        mined_blocks
+            .iter()
+            .map(|block| to_hex_string(to_little_endian(*block.header.block_hash().as_byte_array()).as_slice()))
+            .collect::<Vec<String>>()
+    );
+
     let mined_block_height = 854374;
     let mined_block = deserialize::<Block>(&load_hex_bytes(
         format!("tests/data/block_{mined_block_height}.hex").as_str(),
@@ -71,6 +81,8 @@ fn get_test_case_circuit_input() -> CircuitInput {
         format!("tests/data/block_{retarget_block_height}.hex").as_str(),
     ))
     .unwrap();
+
+    println!("Mined retarget block hash: {:?}", to_hex_string(to_little_endian(*mined_retarget_block.header.block_hash().as_byte_array()).as_slice()));
 
     // This is a real mainnet transaction so we don't need to build rift payment transaction
 
@@ -154,6 +166,8 @@ fn main() {
     stdin.write(&circuit_input);
     println!("Inputs serialized successfully.");
 
+    println!("lp_reservation_hash: {:?}", to_hex_string(circuit_input.public_values.lp_reservation_hash.to_vec().as_slice()));
+
     /*
     // Execute the program
     let (output, report) = client.execute(MAIN_ELF, stdin).run().unwrap();
@@ -179,5 +193,6 @@ fn main() {
     // Verify the proof.
     client.verify(&proof, &vk).expect("failed to verify proof");
     println!("Successfully verified proof!");
-    println!("Proof: {:?}", proof.raw());
+    println!("Public Inputs: {:?}", to_hex_string(proof.public_values.to_vec().as_slice()));
+    println!("Solidity Ready Proof: {:?}", to_hex_string(&proof.bytes()));
 }
