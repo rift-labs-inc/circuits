@@ -16,6 +16,7 @@
 | `utils/`  | Client Library | Client-facing library for creating proofs and interacting with the circuit |
 | `tests/`  | Testing Suite | Unit and Integration tests |
 
+
 ### Run Unit Tests
 ```sh
 ./download_test_blocks.s
@@ -40,6 +41,10 @@ cargo run --release --bin plonk_test -- --execute
 cargo run --release --bin plonk_test
 ```
 
+### Build SP1 Program
+```sh
+cd program && cargo prove build && cd ..
+```
 
 ### Retrieve the Verification Key
 
