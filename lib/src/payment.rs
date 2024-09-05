@@ -64,7 +64,7 @@ fn assert_payment_utxos_exist(
     reserved_liquidity_providers: &[LiquidityReservation; MAX_LIQUIDITY_PROVIDERS],
     lp_count: u64,
     order_nonce: [u8; 32],
-    expected_payout: u64,
+    expected_payout: U256,
 ) {
     let mut data_pointer = 4;
     let (input_counter, input_counter_byte_len) =
@@ -130,7 +130,7 @@ fn assert_payment_utxos_exist(
         }
     }
 
-    assert_eq!(calculated_payout, U256::from_u64(expected_payout));
+    assert_eq!(calculated_payout, expected_payout);
 
 
     data_pointer += AMOUNT_LEN as u64;
@@ -155,7 +155,7 @@ pub fn assert_bitcoin_payment(
     txn_data_no_segwit: &[u8],
     lp_reservation_data_encoded: Vec<[[u8; 32]; 3]>,
     order_nonce: [u8; 32],
-    expected_payout: u64,
+    expected_payout: U256,
     lp_count: u64,
 ) {
     assert!(lp_reservation_data_encoded.len() <= MAX_LIQUIDITY_PROVIDERS as usize);

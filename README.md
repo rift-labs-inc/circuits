@@ -28,10 +28,18 @@ cargo test -p tests --test <test_name>
 # <tx_hash | sha256_merkle | bitcoin | lp_hash | payment | giga>
 ```
 
-### Generate Test Plonk Proof
+### Build Demo Mainnet Plonk Proof
+
+#### Execute only
+```
+cargo run --release --bin plonk_test -- --execute
+```
+
+#### Proof Gen
 ```sh
 cargo run --release --bin plonk_test
 ```
+
 
 ### Retrieve the Verification Key
 

@@ -63,9 +63,6 @@ pub fn build_proof_input(
         expected_payout = expected_payout.saturating_add(&lp.amount_reserved);
     }
     
-    // TODO: We need to use real U256 not u64 in the circuit for now we are using u64
-    let u64_expected_payout = u64::from_be_bytes(expected_payout.to_be_bytes()[0..8].try_into().unwrap());
-
     let safe_block_height = blocks.first().unwrap().bip34_block_height().unwrap();
     let retarget_block_height = get_retarget_height_from_block_height(safe_block_height as u64);
 
@@ -78,7 +75,7 @@ pub fn build_proof_input(
                 liquidity_reservations.len() as u32,
             ),
             *order_nonce,
-            u64_expected_payout,
+            expected_payout,
             liquidity_reservations.len() as u64,
             /*
              *lp_count: u64,

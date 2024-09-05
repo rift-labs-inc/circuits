@@ -7,7 +7,7 @@ pub mod tx_hash;
 
 use alloy_sol_types::sol;
 use constants::{MAX_BLOCKS, MAX_LIQUIDITY_PROVIDERS, MAX_MERKLE_PROOF_STEPS, MAX_TX_SIZE};
-use crypto_bigint::U256;
+use crypto_bigint::{Encoding, U256};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sha256_merkle::MerkleProofStep;
@@ -78,7 +78,7 @@ pub struct CircuitPublicValues {
     pub merkle_root: [u8; 32],
     pub lp_reservation_hash: [u8; 32],
     pub order_nonce: [u8; 32],
-    pub expected_payout: u64,
+    pub expected_payout: [u8; 32],
     pub lp_count: u64,
     pub retarget_block_hash: [u8; 32],
     pub safe_block_height: u64,
@@ -95,7 +95,7 @@ sol! {
         bytes32 natural_txid;
         bytes32 lp_reservation_hash;
         bytes32 order_nonce;
-        uint64 expected_payout;
+        uint256 expected_payout;
         uint64 lp_count;
         bytes32 retarget_block_hash;
         uint64 safe_block_height;
@@ -113,7 +113,7 @@ impl Default for CircuitPublicValues {
             merkle_root: [0u8; 32],
             lp_reservation_hash: [0u8; 32],
             order_nonce: [0u8; 32],
-            expected_payout: 0,
+            expected_payout: [0u8; 32],
             lp_count: 0,
             retarget_block_hash: [0u8; 32],
             safe_block_height: 0,
@@ -131,7 +131,7 @@ impl CircuitPublicValues {
         merkle_root: [u8; 32],
         lp_reservation_hash: [u8; 32],
         order_nonce: [u8; 32],
-        expected_payout: u64,
+        expected_payout: U256,
         lp_count: u64,
         retarget_block_hash: [u8; 32],
         safe_block_height: u64,
@@ -144,6 +144,7 @@ impl CircuitPublicValues {
         for (i, block_hash) in block_hashes.iter().enumerate() {
             padded_block_hashes[i] = *block_hash;
         }
+        let expected_payout = expected_payout.to_be_bytes();
 
         Self {
             natural_txid,
@@ -287,7 +288,7 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
         &txn_data_no_segwit,
         lp_reservation_data,
         circuit_input.public_values.order_nonce,
-        circuit_input.public_values.expected_payout,
+        U256::from_be_bytes(circuit_input.public_values.expected_payout),
         circuit_input.public_values.lp_count,
     );
 
