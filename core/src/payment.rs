@@ -1,28 +1,32 @@
-use crypto_bigint::{NonZero, Zero, U256, CheckedMul, CheckedAdd};
+use crypto_bigint::{CheckedAdd, CheckedMul, NonZero, U256};
 
-use crate::{constants::MAX_LIQUIDITY_PROVIDERS, lp::{decode_liqudity_providers, LiquidityReservation}};
+use crate::{
+    constants::MAX_LIQUIDITY_PROVIDERS,
+    lp::{decode_liqudity_providers, LiquidityReservation},
+};
 use std::ops::Div;
 
 // Constants
-const MAX_SCRIPTSIG_SIZE: u64 = 22;
+//const MAX_SCRIPTSIG_SIZE: u64 = 22;
 const MAX_INPUT_COUNT: u64 = 1;
-const MAX_SCRIPT_INSCRPITION_SIZE: u64 = 80;
-const VERSION_LEN: u8 = 4;
+//const MAX_SCRIPT_INSCRPITION_SIZE: u64 = 80;
+//const VERSION_LEN: u8 = 4;
 const TXID_LEN: u8 = 32;
 const VOUT_LEN: u8 = 4;
 const SEQUENCE_LEN: u8 = 4;
 const AMOUNT_LEN: u8 = 8;
 const OP_RETURN_CODE: u8 = 0x6a;
 const OP_PUSHBYTES_32: u8 = 0x20;
-const DATA_LEN: u8 = 80;
+//const DATA_LEN: u8 = 80;
 
 // Structs
+/*
 struct TxOut {
     value: u64,
     txout_script_length: u8,
     txout_script: [u8; MAX_SCRIPTSIG_SIZE as usize],
 }
-
+*/
 
 // Helper functions
 fn to_int<const N: usize>(bytes: [u8; N]) -> u64 {
@@ -57,7 +61,6 @@ fn extract_int_from_compint_pointer(data_pointer: u64, txn_data: &[u8]) -> (u64,
     ));
     (counter, counter_byte_len)
 }
-
 
 fn assert_payment_utxos_exist(
     txn_data: &[u8],
@@ -132,7 +135,6 @@ fn assert_payment_utxos_exist(
 
     assert_eq!(calculated_payout, expected_payout);
 
-
     data_pointer += AMOUNT_LEN as u64;
     let (sig_counter, sig_counter_byte_len) =
         extract_int_from_compint_pointer(data_pointer, txn_data);
@@ -148,7 +150,6 @@ fn assert_payment_utxos_exist(
     let inscribed_order_nonce =
         grab_bytes_be_conditional::<32>(txn_data, data_pointer, |i| i < sig_counter as u64);
     assert_eq!(inscribed_order_nonce, order_nonce);
-
 }
 
 pub fn assert_bitcoin_payment(
@@ -188,11 +189,5 @@ fn grab_bytes_be_conditional<const N: usize>(
             result[i] = data[start as usize + i];
         }
     }
-    result
-}
-
-fn decode_field_encoded_hash(encoded: [[u8; 32]; 2]) -> [u8; 32] {
-    let mut result = [0u8; 32];
-    result.copy_from_slice(&encoded[0]);
     result
 }

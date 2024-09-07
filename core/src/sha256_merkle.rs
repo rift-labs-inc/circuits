@@ -20,7 +20,7 @@ pub fn hash_pairs(hash_1: [u8; 32], hash_2: [u8; 32]) -> [u8; 32] {
     let mut combined_hashes: [u8; 64] = [0; 64];
     for i in 0..32 {
         combined_hashes[i] = hash1[i];
-        combined_hashes[i+32] = hash2[i];
+        combined_hashes[i + 32] = hash2[i];
     }
 
     // [2] double sha256 combined hashes
@@ -41,7 +41,7 @@ pub fn assert_merkle_proof_equality(
     proposed_txn_hash: [u8; 32],
     proposed_merkle_proof: &[MerkleProofStep],
 ) {
-    let mut current_hash: [u8;32] = proposed_txn_hash;
+    let mut current_hash: [u8; 32] = proposed_txn_hash;
 
     let zero_hash = [0; 32];
     let mut count = 0;
@@ -56,6 +56,8 @@ pub fn assert_merkle_proof_equality(
             count += 1;
         }
     }
-	  assert!(current_hash == merkle_root, "Merkle proof verification failed");
+    assert!(
+        current_hash == merkle_root,
+        "Merkle proof verification failed"
+    );
 }
-

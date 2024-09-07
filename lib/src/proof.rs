@@ -1,20 +1,17 @@
-use bitcoin::consensus::encode::deserialize;
-
 use bitcoin::hashes::Hash;
 
 use bitcoin::Block;
 
-use crypto_bigint::{Encoding, U256};
+use crypto_bigint::U256;
 
-use rift_lib::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
+use rift_core::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
 
-use rift_lib::{validate_rift_transaction, CircuitInput, CircuitPublicValues};
-use serde::Serialize;
-use crate::transaction::{serialize_no_segwit, P2WPKHBitcoinWallet};
+use crate::transaction::serialize_no_segwit;
 use crate::{
-    generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes,
+    generate_merkle_proof_and_root, get_retarget_height_from_block_height,
     to_little_endian, to_rift_optimized_block,
 };
+use rift_core::{CircuitInput, CircuitPublicValues};
 
 use sp1_sdk::{ExecutionReport, ProverClient, SP1Stdin};
 
@@ -24,12 +21,11 @@ pub fn build_proof_input(
     blocks: &Vec<Block>,
     proposed_block_index: usize,
     proposed_txid: &[u8; 32],
-    retarget_block: &Block
+    retarget_block: &Block,
 ) -> CircuitInput {
-
     let proposed_block = &blocks[proposed_block_index];
 
-    let proposed_transaction = proposed_block 
+    let proposed_transaction = proposed_block
         .txdata
         .iter()
         .find(|tx| to_little_endian(tx.compute_txid().to_byte_array()) == *proposed_txid);
@@ -42,7 +38,7 @@ pub fn build_proof_input(
     let mined_transaction_serialized_no_segwit = serialize_no_segwit(&proposed_transaction);
 
     let (merkle_proof, calculated_merkle_root) = generate_merkle_proof_and_root(
-        proposed_block 
+        proposed_block
             .txdata
             .iter()
             .map(|tx| to_little_endian(*tx.compute_txid().as_raw_hash().as_byte_array()))
@@ -52,7 +48,12 @@ pub fn build_proof_input(
 
     assert_eq!(
         calculated_merkle_root,
-        to_little_endian(proposed_block.compute_merkle_root().unwrap().to_byte_array()),
+        to_little_endian(
+            proposed_block
+                .compute_merkle_root()
+                .unwrap()
+                .to_byte_array()
+        ),
         "Invalid merkle root"
     );
 
@@ -62,7 +63,7 @@ pub fn build_proof_input(
     for lp in liquidity_reservations {
         expected_payout = expected_payout.saturating_add(&lp.amount_reserved);
     }
-    
+
     let safe_block_height = blocks.first().unwrap().bip34_block_height().unwrap();
     let retarget_block_height = get_retarget_height_from_block_height(safe_block_height as u64);
 
@@ -89,9 +90,9 @@ pub fn build_proof_input(
             to_little_endian(retarget_block.header.block_hash().to_byte_array()),
             safe_block_height as u64,
             proposed_block_index as u64,
-            blocks.len() as u64-1-proposed_block_index as u64,
+            blocks.len() as u64 - 1 - proposed_block_index as u64,
             retarget_block_height,
-            blocks 
+            blocks
                 .iter()
                 .map(|block| to_little_endian(block.header.block_hash().to_byte_array()))
                 .collect(),
@@ -99,20 +100,23 @@ pub fn build_proof_input(
         mined_transaction_serialized_no_segwit,
         merkle_proof,
         lp_reservation_data_encoded.to_vec(),
-        blocks 
+        blocks
             .iter()
             .enumerate()
             .map(|(i, block)| to_rift_optimized_block(safe_block_height + i as u64, block))
             .collect(),
         to_rift_optimized_block(retarget_block_height, &retarget_block),
     )
-
 }
 
-/// We can't assume that the ELF file will always be available at this location 
+/// We can't assume that the ELF file will always be available at this location
 //pub const MAIN_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
 
-pub fn generate_plonk_proof(circuit_input: CircuitInput, program_elf: &[u8], verify: Option<bool>) -> String {
+pub fn generate_plonk_proof(
+    circuit_input: CircuitInput,
+    program_elf: &[u8],
+    verify: Option<bool>,
+) -> String {
     sp1_sdk::utils::setup_logger();
     // Setup the prover client.
     let client = ProverClient::new();
@@ -141,7 +145,6 @@ pub fn execute(circuit_input: CircuitInput, program_elf: &[u8]) -> ExecutionRepo
     let client = ProverClient::new();
     let mut stdin = SP1Stdin::new();
     stdin.write(&circuit_input);
-    let (output, report) = client.execute(program_elf, stdin).run().unwrap();
+    let (_, report) = client.execute(program_elf, stdin).run().unwrap();
     report
 }
-

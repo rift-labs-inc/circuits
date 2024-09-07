@@ -1,17 +1,12 @@
 #[cfg(test)]
 mod tests {
-    
-    use bitcoin::consensus::encode::{deserialize};
+
+    use bitcoin::{consensus::encode::deserialize, hashes::Hash};
     use bitcoin::Block;
-    
 
-    use rift_lib::tx_hash::{sha256_hash, get_natural_txid};
     use hex_literal::hex;
-    use utils::{load_hex_bytes};
-    
-    
-    
-
+    use rift_core::tx_hash::{get_natural_txid, sha256_hash};
+    use rift_lib::{load_hex_bytes, transaction::serialize_no_segwit};
 
     #[test]
     fn test_hash_smoke_test() {
@@ -27,12 +22,13 @@ mod tests {
         let hash = get_natural_txid(&tx);
         assert!(hash == hex!("eb2b4edd084fa05ccc85db28c4d1d1d8fae8d9e5d18a8bfd528a7a74ae27a895"));
     }
-    
+
     #[test]
     fn test_hash_loaded_block() {
-        
         let block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
+        let tx = block.txdata.first().unwrap();
+        let tx_nosegwit = serialize_no_segwit(&tx);
+        let hash = get_natural_txid(&tx_nosegwit);
+        assert!(tx.compute_txid().as_raw_hash().to_byte_array() == hash);
     }
-
 }
-

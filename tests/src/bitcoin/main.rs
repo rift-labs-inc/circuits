@@ -5,10 +5,10 @@ mod tests {
     use bitcoin::hex::{DisplayHex, FromHex};
     use bitcoin::Block;
 
-    use rift_lib::btc_light_client::{
+    use rift_core::btc_light_client::{
         assert_blockchain, assert_pow, bits_to_target, verify_block, Block as RiftOptimizedBlock,
     };
-    use utils::{
+    use rift_lib::{
         get_retarget_height_from_block_height, load_hex_bytes, to_little_endian,
         to_rift_optimized_block,
     };
@@ -54,7 +54,6 @@ mod tests {
             "Proposed target: {:?}",
             Vec::<u8>::from_hex(&proposed_target.to_string()).unwrap()
         );
-
 
         assert_eq!(
             canon_target.to_be_bytes(),

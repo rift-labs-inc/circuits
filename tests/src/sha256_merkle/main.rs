@@ -1,14 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use bitcoin::consensus::encode::{deserialize};
+    use bitcoin::consensus::encode::deserialize;
     use bitcoin::hashes::Hash;
-    use bitcoin::hex::{DisplayHex};
+    use bitcoin::hex::DisplayHex;
     use bitcoin::Block;
 
-    use rift_lib::sha256_merkle::{
-        assert_merkle_proof_equality
-    };
-    use utils::{to_little_endian, load_hex_bytes, generate_merkle_proof_and_root};
+    use rift_core::sha256_merkle::assert_merkle_proof_equality;
+    use rift_lib::{generate_merkle_proof_and_root, load_hex_bytes, to_little_endian};
 
     #[test]
     fn test_real_merkle_root() {
@@ -22,7 +20,7 @@ mod tests {
                 .as_byte_array(),
         );
 
-        let ( merkle_proof, calculated_merkle_root) = generate_merkle_proof_and_root(
+        let (merkle_proof, calculated_merkle_root) = generate_merkle_proof_and_root(
             block
                 .txdata
                 .iter()
@@ -31,22 +29,18 @@ mod tests {
             txn,
         );
 
-
-        println!("Calculated Merkle Root: {:?}", calculated_merkle_root.as_hex());
+        println!(
+            "Calculated Merkle Root: {:?}",
+            calculated_merkle_root.as_hex()
+        );
         println!("Known Merkle Root:      {:?}", le_merkle_root.as_hex());
 
         assert_eq!(
-            calculated_merkle_root,
-            le_merkle_root,
+            calculated_merkle_root, le_merkle_root,
             "Invalid merkle root"
         );
 
-        assert_merkle_proof_equality(
-            calculated_merkle_root,
-            txn,
-            merkle_proof.as_slice()
-        );
-
+        assert_merkle_proof_equality(calculated_merkle_root, txn, merkle_proof.as_slice());
     }
 
     // run the test but then try to validate the proof with a different tx
@@ -70,7 +64,7 @@ mod tests {
                 .as_byte_array(),
         );
 
-        let ( merkle_proof, calculated_merkle_root) = generate_merkle_proof_and_root(
+        let (merkle_proof, calculated_merkle_root) = generate_merkle_proof_and_root(
             block
                 .txdata
                 .iter()
@@ -79,22 +73,21 @@ mod tests {
             txn,
         );
 
-
-        println!("Calculated Merkle Root: {:?}", calculated_merkle_root.as_hex());
+        println!(
+            "Calculated Merkle Root: {:?}",
+            calculated_merkle_root.as_hex()
+        );
         println!("Known Merkle Root:      {:?}", le_merkle_root.as_hex());
 
         assert_eq!(
-            calculated_merkle_root,
-            le_merkle_root,
+            calculated_merkle_root, le_merkle_root,
             "Invalid merkle root"
         );
 
         assert_merkle_proof_equality(
             calculated_merkle_root,
             different_txn,
-            merkle_proof.as_slice()
+            merkle_proof.as_slice(),
         );
-
-
     }
 }

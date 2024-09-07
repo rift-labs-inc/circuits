@@ -4,7 +4,7 @@ sp1_zkvm::entrypoint!(main);
 use alloy_sol_types::private::FixedBytes;
 use alloy_sol_types::private::Uint;
 use alloy_sol_types::SolType;
-use rift_lib::{validate_rift_transaction, CircuitInput, SolidityPublicValues};
+use rift_core::{validate_rift_transaction, CircuitInput, SolidityPublicValues};
 
 pub fn main() {
     // Read an input to the program.

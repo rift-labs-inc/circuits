@@ -4,8 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy-sol-types = { workspace = true }
-sha2 = {  workspace = true }
-crypto-bigint = {  workspace = true }
+thiserror = "1.0.63"
+rift-core = { path = "../core" }
+bitcoin = { workspace = true }
 serde = { workspace = true }
-serde_with = { workspace = true }
+serde_json = { workspace = true }
+crypto-bigint = { workspace = true }
+sp1-sdk = { workspace = true }
+
+

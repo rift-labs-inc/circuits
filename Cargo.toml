@@ -1,10 +1,10 @@
 [workspace]
 members = [
-    "lib",
+    "core",
     "program",
     "script",
     "tests",
-    "utils",
+    "lib",
 ]
 resolver = "2"
 

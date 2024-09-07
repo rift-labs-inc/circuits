@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 alloy-sol-types = { workspace = true }
 sp1-zkvm = "1.1.0"
-rift-lib = { path = "../lib" }
+rift-core = { path = "../core" }

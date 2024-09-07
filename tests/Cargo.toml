@@ -30,7 +30,7 @@ path = "src/giga/main.rs"
 
 [dependencies]
 rift-lib = { path = "../lib" }
-utils = { path = "../utils" }
+rift-core = { path = "../core" }
 hex-literal = {  workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }

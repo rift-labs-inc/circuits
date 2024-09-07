@@ -9,29 +9,14 @@ mod tests {
     use crypto_bigint::U256;
     use hex_literal::hex;
 
-    use rift_lib::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
+    use rift_core::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
 
-    use rift_lib::{validate_rift_transaction, CircuitInput, CircuitPublicValues};
-    use utils::transaction::{serialize_no_segwit, P2WPKHBitcoinWallet};
-    use utils::{
+    use rift_lib::transaction::serialize_no_segwit;
+    use rift_lib::{
         generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes,
         to_little_endian, to_rift_optimized_block,
     };
-
-    use clap::Parser;
-    use sp1_sdk::{ProverClient, SP1Stdin};
-
-    /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-    pub const MAIN_ELF: &[u8] = include_bytes!("../../../elf/riscv32im-succinct-zkvm-elf");
-
-    use sha2::Digest;
-
-    fn get_test_wallet() -> P2WPKHBitcoinWallet {
-        P2WPKHBitcoinWallet::from_secret_key(
-            hex!("ef7a6f48e45fc4af1ddfc9047af0e06f550bca661869455d5fc05812ef1a9593"),
-            bitcoin::Network::Bitcoin,
-        )
-    }
+    use rift_core::{validate_rift_transaction, CircuitInput, CircuitPublicValues};
 
     fn get_test_case_circuit_input() -> CircuitInput {
         let order_nonce = hex!("f0ad57e677a89d2c2aaae4c5fd52ba20c63c0a05c916619277af96435f874c64");
@@ -55,7 +40,7 @@ mod tests {
 
         let lp_reservation_data_encoded = encode_liquidity_providers(&lp_reservations);
 
-        let expected_payout: u64 = 299505000000000;
+        let expected_payout: U256 = U256::from_u64(299505000000000);
 
         let mined_blocks = [
             deserialize::<Block>(&load_hex_bytes("data/block_854373.hex")).unwrap(),
@@ -162,7 +147,7 @@ mod tests {
         println!("Serialized data size: {} bytes", serialized.len());
 
         // Deserialize back to CircuitInput
-        let deserialized: CircuitInput = bincode::deserialize(&serialized).unwrap();
+        let _deserialized: CircuitInput = bincode::deserialize(&serialized).unwrap();
 
         println!("Serialization and deserialization successful!");
         println!("Deserialization successful!");

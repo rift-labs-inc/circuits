@@ -5,8 +5,6 @@ pub fn sha256_hash(bytes: &[u8]) -> [u8; 32] {
 }
 
 pub fn get_natural_txid(tx: &[u8]) -> [u8; 32] {
-    let intermediate_hash= sha256_hash(tx);
+    let intermediate_hash = sha256_hash(tx);
     sha256_hash(&intermediate_hash)
 }
-
-

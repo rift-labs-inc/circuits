@@ -1,4 +1,4 @@
-use crypto_bigint::{Encoding, Zero, U256};
+use crypto_bigint::U256;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -57,19 +57,17 @@ pub fn bits_to_target(bits: [u8; 4]) -> U256 {
     }
 }
 
-pub fn assert_pow(
-    proposed_block_hash: &[u8; 32],
-    proposed_block: &Block,
-    proposed_target: U256,
-) {
+pub fn assert_pow(proposed_block_hash: &[u8; 32], proposed_block: &Block, proposed_target: U256) {
     let calculated_block_hash = proposed_block.compute_block_hash();
 
     // [2] verify proposed block hash matches calculated block hash
     assert_eq!(calculated_block_hash, *proposed_block_hash);
 
     // [3] verify PoW -> block hash <= proposed target
-    assert!(U256::from_be_slice(proposed_block_hash).le(&proposed_target), "PoW invalid hash < target");
-
+    assert!(
+        U256::from_be_slice(proposed_block_hash).le(&proposed_target),
+        "PoW invalid hash < target"
+    );
 }
 
 pub fn to_little_endian<const N: usize>(input: [u8; N]) -> [u8; N] {
@@ -80,7 +78,6 @@ pub fn to_little_endian<const N: usize>(input: [u8; N]) -> [u8; N] {
     output
 }
 
-
 pub fn verify_block(
     proposed_block_hash: [u8; 32],
     previous_block_hash: [u8; 32],
@@ -90,13 +87,24 @@ pub fn verify_block(
 ) {
     // [1] verify proposed target is equal to real target
     let proposed_target = bits_to_target(proposed_block.bits);
-    assert_eq!(retarget_block.bits, proposed_block.bits, "Proposed target does not match real target");
+    assert_eq!(
+        retarget_block.bits, proposed_block.bits,
+        "Proposed target does not match real target"
+    );
 
     // [2] verify the proposed block height is one greater than previous_block_height
-    assert_eq!(proposed_block.height, previous_block_height + 1, "Block height is not one greater than previous block height");
+    assert_eq!(
+        proposed_block.height,
+        previous_block_height + 1,
+        "Block height is not one greater than previous block height"
+    );
 
     // [3] verify the proposed prev_block_hash matches real previous_block_hash
-    assert_eq!(to_little_endian(proposed_block.prev_blockhash), previous_block_hash, "Proposed prev_block hash does not match real prev_block hash");
+    assert_eq!(
+        to_little_endian(proposed_block.prev_blockhash),
+        previous_block_hash,
+        "Proposed prev_block hash does not match real prev_block hash"
+    );
 
     // [4] verify PoW (double sha256(block_hash) <= target)
     assert_pow(&proposed_block_hash, proposed_block, proposed_target);

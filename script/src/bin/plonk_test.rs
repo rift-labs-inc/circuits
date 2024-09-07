@@ -1,32 +1,21 @@
 use bitcoin::consensus::encode::deserialize;
 
-use bitcoin::hashes::Hash;
-
-use bitcoin::hex::display::DisplayArray;
-use bitcoin::hex::DisplayHex;
 use bitcoin::Block;
 
 use crypto_bigint::U256;
 use hex_literal::hex;
 
-use rift_lib::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
+use rift_core::lp::LiquidityReservation;
 
-use rift_lib::{validate_rift_transaction, CircuitInput, CircuitPublicValues};
-use serde::Serialize;
-use utils::proof::build_proof_input;
-use utils::transaction::{serialize_no_segwit, P2WPKHBitcoinWallet};
-use utils::{
-    generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes,
-    to_hex_string, to_little_endian, to_rift_optimized_block,
-};
+use rift_core::CircuitInput;
+use rift_lib::proof::build_proof_input;
+use rift_lib::{get_retarget_height_from_block_height, load_hex_bytes, to_hex_string};
 
 use clap::Parser;
 use sp1_sdk::{ProverClient, SP1Stdin};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const MAIN_ELF: &[u8] = include_bytes!("../../../elf/riscv32im-succinct-zkvm-elf");
-
-
 
 fn get_test_case_circuit_input() -> CircuitInput {
     let order_nonce = hex!("f0ad57e677a89d2c2aaae4c5fd52ba20c63c0a05c916619277af96435f874c64");
@@ -57,7 +46,6 @@ fn get_test_case_circuit_input() -> CircuitInput {
         deserialize::<Block>(&load_hex_bytes("tests/data/block_854378.hex")).unwrap(),
         deserialize::<Block>(&load_hex_bytes("tests/data/block_854379.hex")).unwrap(),
     ];
-
 
     let mined_block_height = 854374;
     let mined_txid = hex!("fb7ea6c1a58f9e827c50aefb3117ce41dd5fecb969041864ec0eff9273b08038");
@@ -119,10 +107,9 @@ fn main() {
 
     if args.execute {
         // Execute the program
-        let (output, report) = client.execute(MAIN_ELF, stdin).run().unwrap();
+        let (_output, report) = client.execute(MAIN_ELF, stdin).run().unwrap();
         println!("Program executed successfully.");
         println!("Number of cycles: {}", report.total_instruction_count());
-
     } else {
         // Setup the program for proving.
         let (pk, vk) = client.setup(MAIN_ELF);

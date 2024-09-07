@@ -10,10 +10,10 @@
 
 | Directory | Purpose | Contents |
 |-----------|---------|----------|
-| `lib/`    | Internal Library | Encapsulates all circuit business logic |
+| `core/`    | Internal Library | Encapsulates all circuit business logic |
 | `program/`| Executable Wrapper | Combines SP1 with our circuit library to create the program executable |
 | `script/` | Build Utilities | Contains scripts for building vkeys, proofs and evm artifacts |
-| `utils/`  | Client Library | Client-facing library for creating proofs and interacting with the circuit |
+| `lib/`  | Client Library | Client-facing library for creating proofs|
 | `tests/`  | Testing Suite | Unit and Integration tests |
 
 

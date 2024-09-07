@@ -14,7 +14,7 @@ fi
 
 # Set default values
 OUTPUT_DIR="tests/data"
-HEIGHTS=(852768 854373 854374 854375 854376 854377 854378 854379 854380 854136 858564 856800 858565 858566 858567 858568)
+HEIGHTS=(854376 852768 854373 854374 854375 854377 854378 854379 854380 854136 858564 856800 858565 858566 858567 858568)
 API_URL="https://blockstream.info/api"
 
 # Function to display usage
@@ -65,7 +65,7 @@ for height in "${HEIGHTS[@]}"; do
     rm "$temp_file"
     
     # Add a small delay to avoid rate limiting
-    sleep 1
+    sleep 3
 done
 
 echo "Download completed. Blocks saved in $OUTPUT_DIR"

@@ -2,15 +2,7 @@
 version = "0.1.0"
 name = "rift-script"
 edition = "2021"
-default-run = "rift"
-
-[[bin]]
-name = "rift"
-path = "src/bin/main.rs"
-
-[[bin]]
-name = "evm"
-path = "src/bin/evm.rs"
+default-run = "plonk_test"
 
 [[bin]]
 name = "vkey"
@@ -30,7 +22,7 @@ rift-lib = { path = "../lib" }
 sp1-sdk = { workspace = true }
 clap = { workspace = true }
 bitcoin = { workspace = true }
-utils = { path = "../utils" }
+rift-core = { path = "../core" }
 hex-literal = { workspace = true } 
 crypto-bigint = { workspace = true } 
 
