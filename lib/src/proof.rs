@@ -117,7 +117,6 @@ pub fn generate_plonk_proof(
     program_elf: &[u8],
     verify: Option<bool>,
 ) -> String {
-    sp1_sdk::utils::setup_logger();
     // Setup the prover client.
     let client = ProverClient::new();
     // Setup the inputs.
@@ -141,7 +140,6 @@ pub fn generate_plonk_proof(
 }
 
 pub fn execute(circuit_input: CircuitInput, program_elf: &[u8]) -> ExecutionReport {
-    sp1_sdk::utils::setup_logger();
     let client = ProverClient::new();
     let mut stdin = SP1Stdin::new();
     stdin.write(&circuit_input);
