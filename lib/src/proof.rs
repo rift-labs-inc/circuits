@@ -113,7 +113,7 @@ pub fn generate_plonk_proof(
     circuit_input: CircuitInput,
     program_elf: &[u8],
     verify: Option<bool>,
-) -> String {
+) -> Vec<u8> {
     // Setup the prover client.
     let client = ProverClient::new();
     // Setup the inputs.
@@ -133,7 +133,7 @@ pub fn generate_plonk_proof(
         client.verify(&proof, &vk).expect("failed to verify proof");
     }
 
-    proof.raw()
+    proof.bytes()
 }
 
 pub fn execute(circuit_input: CircuitInput, program_elf: &[u8]) -> ExecutionReport {
