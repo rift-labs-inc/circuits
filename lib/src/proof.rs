@@ -15,9 +15,11 @@ use rift_core::{CircuitInput, CircuitPublicValues};
 
 use sp1_sdk::{ExecutionReport, ProverClient, SP1Stdin};
 
+
 pub fn build_proof_input(
     order_nonce: &[u8; 32],
     liquidity_reservations: &Vec<LiquidityReservation>,
+    expected_payout: U256,
     blocks: &Vec<Block>,
     proposed_block_index: usize,
     proposed_txid: &[u8; 32],
@@ -58,11 +60,6 @@ pub fn build_proof_input(
     );
 
     let lp_reservation_data_encoded = encode_liquidity_providers(&liquidity_reservations);
-
-    let mut expected_payout = U256::from_u8(0);
-    for lp in liquidity_reservations {
-        expected_payout = expected_payout.saturating_add(&lp.amount_reserved);
-    }
 
     let safe_block_height = blocks.first().unwrap().bip34_block_height().unwrap();
     let retarget_block_height = get_retarget_height_from_block_height(safe_block_height as u64);
