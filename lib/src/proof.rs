@@ -113,7 +113,7 @@ pub fn generate_plonk_proof(
     circuit_input: CircuitInput,
     program_elf: &[u8],
     verify: Option<bool>,
-) -> Vec<u8> {
+) -> sp1_sdk::SP1ProofWithPublicValues {
     // Setup the prover client.
     let client = ProverClient::new();
     // Setup the inputs.
@@ -133,7 +133,7 @@ pub fn generate_plonk_proof(
         client.verify(&proof, &vk).expect("failed to verify proof");
     }
 
-    proof.bytes()
+    proof
 }
 
 pub fn execute(circuit_input: CircuitInput, program_elf: &[u8]) -> ExecutionReport {
