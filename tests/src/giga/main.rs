@@ -40,7 +40,6 @@ mod tests {
 
         let lp_reservation_data_encoded = encode_liquidity_providers(&lp_reservations);
 
-        let expected_payout: U256 = U256::from_u64(299505000000000);
 
         let mined_blocks = [
             deserialize::<Block>(&load_hex_bytes("data/block_854373.hex")).unwrap(),
@@ -105,7 +104,6 @@ mod tests {
                     lp_reservations.len() as u32,
                 ),
                 order_nonce,
-                expected_payout,
                 lp_reservations.len() as u64,
                 to_little_endian(mined_retarget_block.header.block_hash().to_byte_array()),
                 mined_block_height - 1,

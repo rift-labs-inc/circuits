@@ -106,7 +106,7 @@ pub fn build_rift_payment_transaction(
 
     let total_lp_sum_btc: u64 = liquidity_providers
         .iter()
-        .map(|lp| wei_to_satoshi(lp.amount_reserved, lp.btc_exchange_rate))
+        .map(|lp| lp.expected_sats)
         .sum();
 
     let vin_sats = transaction.output[in_txvout as usize].value.to_sat();
@@ -118,7 +118,7 @@ pub fn build_rift_payment_transaction(
 
     // Add liquidity provider outputs
     for lp in liquidity_providers {
-        let amount = wei_to_satoshi(lp.amount_reserved, lp.btc_exchange_rate);
+        let amount = lp.expected_sats;
         let script = Script::from_bytes(&lp.script_pub_key);
         tx_outs.push(TxOut {
             value: Amount::from_sat(amount),

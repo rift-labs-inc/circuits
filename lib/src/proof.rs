@@ -19,7 +19,6 @@ use sp1_sdk::{ExecutionReport, ProverClient, SP1Stdin};
 pub fn build_proof_input(
     order_nonce: &[u8; 32],
     liquidity_reservations: &Vec<LiquidityReservation>,
-    expected_payout: U256,
     blocks: &Vec<Block>,
     proposed_block_index: usize,
     proposed_txid: &[u8; 32],
@@ -73,7 +72,6 @@ pub fn build_proof_input(
                 liquidity_reservations.len() as u32,
             ),
             *order_nonce,
-            expected_payout,
             liquidity_reservations.len() as u64,
             /*
              *lp_count: u64,

@@ -20,7 +20,6 @@ pub fn main() {
         natural_txid: FixedBytes::from(circuit_public_input.natural_txid),
         lp_reservation_hash: FixedBytes::from(circuit_public_input.lp_reservation_hash),
         order_nonce: FixedBytes::from(circuit_public_input.order_nonce),
-        expected_payout: Uint::from_be_bytes(circuit_public_input.expected_payout),
         lp_count: circuit_public_input.lp_count,
         retarget_block_hash: FixedBytes::from(circuit_public_input.retarget_block_hash),
         safe_block_height: circuit_public_input.safe_block_height,

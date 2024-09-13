@@ -76,7 +76,6 @@ pub struct CircuitPublicValues {
     pub merkle_root: [u8; 32],
     pub lp_reservation_hash: [u8; 32],
     pub order_nonce: [u8; 32],
-    pub expected_payout: [u8; 32],
     pub lp_count: u64,
     pub retarget_block_hash: [u8; 32],
     pub safe_block_height: u64,
@@ -93,7 +92,6 @@ sol! {
         bytes32 natural_txid;
         bytes32 lp_reservation_hash;
         bytes32 order_nonce;
-        uint256 expected_payout;
         uint64 lp_count;
         bytes32 retarget_block_hash;
         uint64 safe_block_height;
@@ -111,7 +109,6 @@ impl Default for CircuitPublicValues {
             merkle_root: [0u8; 32],
             lp_reservation_hash: [0u8; 32],
             order_nonce: [0u8; 32],
-            expected_payout: [0u8; 32],
             lp_count: 0,
             retarget_block_hash: [0u8; 32],
             safe_block_height: 0,
@@ -129,7 +126,6 @@ impl CircuitPublicValues {
         merkle_root: [u8; 32],
         lp_reservation_hash: [u8; 32],
         order_nonce: [u8; 32],
-        expected_payout: U256,
         lp_count: u64,
         retarget_block_hash: [u8; 32],
         safe_block_height: u64,
@@ -142,14 +138,12 @@ impl CircuitPublicValues {
         for (i, block_hash) in block_hashes.iter().enumerate() {
             padded_block_hashes[i] = *block_hash;
         }
-        let expected_payout = expected_payout.to_be_bytes();
 
         Self {
             natural_txid,
             merkle_root,
             lp_reservation_hash,
             order_nonce,
-            expected_payout,
             lp_count,
             retarget_block_hash,
             safe_block_height,
@@ -170,7 +164,7 @@ pub struct CircuitInput {
     pub merkle_proof: [MerkleProofStep; MAX_MERKLE_PROOF_STEPS],
     pub utilized_merkle_proof_steps: u64,
     #[serde(with = "arrays")]
-    pub lp_reservation_data: [[[u8; 32]; 3]; MAX_LIQUIDITY_PROVIDERS],
+    pub lp_reservation_data: [[[u8; 32]; 2]; MAX_LIQUIDITY_PROVIDERS],
     pub utilized_lp_reservation_data: u64,
     #[serde(with = "arrays")]
     pub blocks: [btc_light_client::Block; MAX_BLOCKS],
@@ -183,7 +177,7 @@ impl CircuitInput {
         public_values: CircuitPublicValues,
         txn_data_no_segwit: Vec<u8>,
         merkle_proof: Vec<MerkleProofStep>,
-        lp_reservation_data: Vec<[[u8; 32]; 3]>,
+        lp_reservation_data: Vec<[[u8; 32]; 2]>,
         blocks: Vec<btc_light_client::Block>,
         retarget_block: btc_light_client::Block,
     ) -> Self {
@@ -197,7 +191,7 @@ impl CircuitInput {
             padded_merkle_proof[i] = *step;
         }
 
-        let mut padded_lp_reservation_data = [[[0u8; 32]; 3]; MAX_LIQUIDITY_PROVIDERS];
+        let mut padded_lp_reservation_data = [[[0u8; 32]; 2]; MAX_LIQUIDITY_PROVIDERS];
         for (i, lp_data) in lp_reservation_data.iter().enumerate() {
             padded_lp_reservation_data[i] = *lp_data;
         }
@@ -231,7 +225,7 @@ impl Default for CircuitInput {
             utilized_txn_data_size: 0,
             merkle_proof: [MerkleProofStep::default(); MAX_MERKLE_PROOF_STEPS],
             utilized_merkle_proof_steps: 0,
-            lp_reservation_data: [[[0u8; 32]; 3]; MAX_LIQUIDITY_PROVIDERS],
+            lp_reservation_data: [[[0u8; 32]; 2]; MAX_LIQUIDITY_PROVIDERS],
             utilized_lp_reservation_data: 0,
             blocks: [btc_light_client::Block::default(); MAX_BLOCKS],
             utilized_blocks: 0,
@@ -289,7 +283,6 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
         &txn_data_no_segwit,
         lp_reservation_data,
         circuit_input.public_values.order_nonce,
-        U256::from_be_bytes(circuit_input.public_values.expected_payout),
         circuit_input.public_values.lp_count,
     );
 

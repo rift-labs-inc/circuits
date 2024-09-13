@@ -67,7 +67,6 @@ fn assert_payment_utxos_exist(
     reserved_liquidity_providers: &[LiquidityReservation; MAX_LIQUIDITY_PROVIDERS],
     lp_count: u64,
     order_nonce: [u8; 32],
-    expected_payout: U256,
 ) {
     let mut data_pointer = 4;
     let (input_counter, input_counter_byte_len) =
@@ -89,13 +88,11 @@ fn assert_payment_utxos_exist(
     assert!(lp_count + 1 <= output_counter);
     data_pointer += output_counter_byte_len as u64;
 
-    let mut calculated_payout: U256 = U256::ZERO;
-
     for i in 0..MAX_LIQUIDITY_PROVIDERS {
         if i < lp_count as usize {
-            let value = U256::from_u64(to_int::<8>(grab_bytes_le::<8>(
+            let value = to_int::<8>(grab_bytes_le::<8>(
                 &txn_data[data_pointer as usize..],
-            )));
+            ));
             data_pointer += AMOUNT_LEN as u64;
             let (sig_counter, sig_counter_byte_len) =
                 extract_int_from_compint_pointer(data_pointer, txn_data);
@@ -106,34 +103,18 @@ fn assert_payment_utxos_exist(
             let locking_script =
                 grab_bytes_be_conditional::<22>(txn_data, data_pointer, |i| i < sig_counter as u64);
 
-            // value here is always in sats which has word size of 64 bits
-            let exchange_rate = NonZero::new(U256::from_u64(
-                reserved_liquidity_providers[i].btc_exchange_rate,
-            ))
-            .unwrap();
+            let expected_sats = reserved_liquidity_providers[i].expected_sats;
 
-            let amount_reserved =
-                NonZero::new(reserved_liquidity_providers[i].amount_reserved).unwrap();
-
-            assert_eq!(value, amount_reserved.div(exchange_rate));
+            assert_eq!(value, expected_sats);
 
             assert_eq!(
                 locking_script,
                 reserved_liquidity_providers[i].script_pub_key
             );
 
-            let product = value
-                .checked_mul(&U256::from_u64(
-                    reserved_liquidity_providers[i].btc_exchange_rate,
-                ))
-                .unwrap();
-
-            calculated_payout = calculated_payout.checked_add(&product).unwrap();
             data_pointer += sig_counter;
         }
     }
-
-    assert_eq!(calculated_payout, expected_payout);
 
     data_pointer += AMOUNT_LEN as u64;
     let (sig_counter, sig_counter_byte_len) =
@@ -154,9 +135,8 @@ fn assert_payment_utxos_exist(
 
 pub fn assert_bitcoin_payment(
     txn_data_no_segwit: &[u8],
-    lp_reservation_data_encoded: Vec<[[u8; 32]; 3]>,
+    lp_reservation_data_encoded: Vec<[[u8; 32]; 2]>,
     order_nonce: [u8; 32],
-    expected_payout: U256,
     lp_count: u64,
 ) {
     assert!(lp_reservation_data_encoded.len() <= MAX_LIQUIDITY_PROVIDERS as usize);
@@ -166,7 +146,6 @@ pub fn assert_bitcoin_payment(
         &liquidity_providers,
         lp_count,
         order_nonce,
-        expected_payout,
     );
 }
 
