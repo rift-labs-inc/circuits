@@ -82,7 +82,6 @@ pub fn compute_lp_hash(
 
     for lp_data in lp_reservation_data_encoded.iter().take(lp_count as usize) {
         let hashable_chunk = build_hashable_chunk(*lp_data, intermediate_vault_hash);
-        println!("hashable_chunk: {:?}", hashable_chunk);
         intermediate_vault_hash = Sha256::digest(hashable_chunk).into();
     }
 
