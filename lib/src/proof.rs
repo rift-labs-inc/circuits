@@ -134,10 +134,10 @@ pub fn generate_plonk_proof(
     proof
 }
 
-pub fn execute(circuit_input: CircuitInput, program_elf: &[u8]) -> ExecutionReport {
+pub fn execute(circuit_input: CircuitInput, program_elf: &[u8]) -> (String, ExecutionReport) {
     let client = ProverClient::new();
     let mut stdin = SP1Stdin::new();
     stdin.write(&circuit_input);
-    let (_, report) = client.execute(program_elf, stdin).run().unwrap();
-    report
+    let (public_values, report) = client.execute(program_elf, stdin).run().unwrap();
+    (public_values.raw(), report)
 }
