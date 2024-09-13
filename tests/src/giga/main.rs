@@ -22,18 +22,15 @@ mod tests {
         let order_nonce = hex!("f0ad57e677a89d2c2aaae4c5fd52ba20c63c0a05c916619277af96435f874c64");
         let lp_reservations: Vec<LiquidityReservation> = vec![
             LiquidityReservation {
-                amount_reserved: U256::from_u64(99835000000000),
-                btc_exchange_rate: 205000000000,
+                expected_sats: 487,
                 script_pub_key: hex!("001463dff5f8da08ca226ba01f59722c62ad9b9b3eaa"),
             },
             LiquidityReservation {
-                amount_reserved: U256::from_u64(99835000000000),
-                btc_exchange_rate: 205000000000,
+                expected_sats: 487,
                 script_pub_key: hex!("0014aa86191235be8883693452cf30daf854035b085b"),
             },
             LiquidityReservation {
-                amount_reserved: U256::from_u64(99835000000000),
-                btc_exchange_rate: 205000000000,
+                expected_sats: 487,
                 script_pub_key: hex!("00146ab8f6c80b8a7dc1b90f7deb80e9b59ae16b7a5a"),
             },
         ];
