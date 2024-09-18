@@ -1,8 +1,7 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use alloy_sol_types::private::FixedBytes;
-use alloy_sol_types::private::Uint;
+use alloy_sol_types::private::{FixedBytes, Uint};
 use alloy_sol_types::SolType;
 use rift_core::{validate_rift_transaction, CircuitInput, SolidityPublicValues};
 
@@ -24,7 +23,9 @@ pub fn main() {
         retarget_block_hash: FixedBytes::from(circuit_public_input.retarget_block_hash),
         safe_block_height: circuit_public_input.safe_block_height,
         safe_block_height_delta: circuit_public_input.safe_block_height_delta,
+        safe_chainwork: Uint::from_be_bytes(circuit_public_input.safe_chainwork),
         confirmation_block_height_delta: circuit_public_input.confirmation_block_height_delta,
+        confirmation_chainwork: Uint::from_be_bytes(circuit_public_input.confirmation_chainwork),
         retarget_block_height: circuit_public_input.retarget_block_height,
         block_hashes: circuit_public_input.block_hashes
             [0..(circuit_input.utilized_blocks as usize)]
