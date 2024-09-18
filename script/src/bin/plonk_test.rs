@@ -2,7 +2,7 @@ use bitcoin::consensus::encode::deserialize;
 
 use bitcoin::Block;
 
-use crypto_bigint::U256;
+use crypto_bigint::{Encoding, U256};
 use hex_literal::hex;
 
 use rift_core::lp::LiquidityReservation;
@@ -17,7 +17,11 @@ use sp1_sdk::{ProverClient, SP1Stdin};
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const MAIN_ELF: &[u8] = include_bytes!("../../../elf/riscv32im-succinct-zkvm-elf");
 
+
 fn get_test_case_circuit_input() -> CircuitInput {
+    let safe_chainwork = U256::from_be_bytes(hex!(
+        "000000000000000000000000000000000000000085ed2ff0a553f14e4d649ce0"
+    ));
     let order_nonce = hex!("f0ad57e677a89d2c2aaae4c5fd52ba20c63c0a05c916619277af96435f874c64");
     let lp_reservations: Vec<LiquidityReservation> = vec![
         LiquidityReservation {
@@ -55,6 +59,7 @@ fn get_test_case_circuit_input() -> CircuitInput {
     build_proof_input(
         &order_nonce,
         &lp_reservations,
+        safe_chainwork,
         &mined_blocks.to_vec(),
         1,
         &mined_txid,
