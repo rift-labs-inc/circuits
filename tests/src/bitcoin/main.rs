@@ -195,6 +195,9 @@ mod tests {
                 .collect::<Vec<u64>>()
         );
 
+        println!("Retarget block bits: {:?}", retarget_block.bits);
+        println!("Initial block bits: {:?}", blocks[0].bits);
+
         assert_blockchain(
             commited_block_hashes,
             initial_block,
@@ -260,7 +263,7 @@ mod tests {
             initial_block,
             intial_block_chainwork,
             retarget_block.compute_block_hash(),
-            get_retarget_height_from_block_height(initial_block),
+            retarget_block.height,
             final_block_chainwork,
             blocks,
             *retarget_block,

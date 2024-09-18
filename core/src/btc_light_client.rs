@@ -104,6 +104,7 @@ pub fn verify_block(
 ) {
     // [1] verify proposed target is equal to real target
     let proposed_target = bits_to_target(proposed_block.bits);
+
     assert_eq!(
         retarget_block.bits, proposed_block.bits,
         "Proposed target does not match real target"
@@ -170,8 +171,8 @@ pub fn assert_blockchain(
         );
 
         // Change retarget block if necessary
-        if current_block.height % 2016 == 0 {
-            last_retarget_block = current_block.clone();
+        if next_block.height % 2016 == 0 {
+            last_retarget_block = next_block.clone();
         }
 
         // Update chainwork
