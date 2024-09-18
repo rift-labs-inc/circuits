@@ -1,5 +1,5 @@
 use crypto_bigint::CheckedAdd;
-use crypto_bigint::{Integer, U256};
+use crypto_bigint::U256;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -132,12 +132,12 @@ pub fn assert_blockchain(
     safe_block_height: u64,
     safe_block_chainwork: U256,
     retarget_block_hash: [u8; 32],
-    retarget_block_height: u64,
+    _retarget_block_height: u64,
     confirmation_block_chainwork: U256,
     blocks: Vec<Block>,
     retarget_block: Block,
 ) {
-    let last_block_height = safe_block_height + blocks.len() as u64 - 1;
+    let _last_block_height = safe_block_height + blocks.len() as u64 - 1;
 
     assert_eq!(
         retarget_block.compute_block_hash(),

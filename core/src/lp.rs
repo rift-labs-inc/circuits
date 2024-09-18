@@ -1,5 +1,4 @@
 use crate::constants::MAX_LIQUIDITY_PROVIDERS;
-use crypto_bigint::{Encoding, U256};
 use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Copy)]
