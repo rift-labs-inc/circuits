@@ -161,7 +161,9 @@ mod tests {
         ));
         // chainwork of block 858567
 
-        let final_block_chainwork = U256::from_be_bytes(hex!("00000000000000000000000000000000000000008b0fc108548a1a9c90289890"));
+        let final_block_chainwork = U256::from_be_bytes(hex!(
+            "00000000000000000000000000000000000000008b0fc108548a1a9c90289890"
+        ));
         let blocks = (0..block_delta)
             .map(|i| {
                 deserialize::<Block>(&load_hex_bytes(&format!(
@@ -185,7 +187,73 @@ mod tests {
             .map(|block| block.compute_block_hash())
             .collect::<Vec<[u8; 32]>>();
 
-        println!("Block heights {:?}", blocks.iter().map(|block| block.height).collect::<Vec<u64>>());
+        println!(
+            "Block heights {:?}",
+            blocks
+                .iter()
+                .map(|block| block.height)
+                .collect::<Vec<u64>>()
+        );
+
+        assert_blockchain(
+            commited_block_hashes,
+            initial_block,
+            intial_block_chainwork,
+            retarget_block.compute_block_hash(),
+            get_retarget_height_from_block_height(initial_block),
+            final_block_chainwork,
+            blocks,
+            *retarget_block,
+        );
+    }
+
+    #[test]
+    fn test_blockchain_verifies_during_retarget() {
+        let initial_block = 856799;
+        let block_delta = 2;
+        let intial_block_chainwork = U256::from_be_bytes(hex!(
+            "000000000000000000000000000000000000000088ee16bb485893eb55b2efe0"
+        ));
+
+        let blocks = (0..block_delta)
+            .map(|i| {
+                deserialize::<Block>(&load_hex_bytes(&format!(
+                    "data/block_{}.hex",
+                    initial_block + i
+                )))
+                .unwrap()
+                .as_rift_optimized_block()
+            })
+            .collect::<Vec<RiftOptimizedBlock>>();
+
+        println!("Blocks: {:?}", blocks.len());
+        println!("retarget height {}", get_retarget_height_from_block_height(initial_block));
+
+        let retarget_block = &deserialize::<Block>(&load_hex_bytes(&format!(
+            "data/block_{}.hex",
+            get_retarget_height_from_block_height(initial_block)
+        )))
+        .unwrap()
+        .as_rift_optimized_block();
+
+        let commited_block_hashes = blocks
+            .iter()
+            .map(|block| block.compute_block_hash())
+            .collect::<Vec<[u8; 32]>>();
+
+        println!(
+            "Block heights {:?}",
+            blocks
+                .iter()
+                .map(|block| block.height)
+                .collect::<Vec<u64>>()
+        );
+
+        let final_block_chainwork = blocks
+            .iter()
+            .fold(intial_block_chainwork, |chainwork_acc, block| {
+                block.compute_chainwork(chainwork_acc)
+            });
 
         assert_blockchain(
             commited_block_hashes,
