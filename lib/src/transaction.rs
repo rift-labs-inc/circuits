@@ -4,7 +4,7 @@ use bitcoin::script::Builder;
 use bitcoin::sighash::SighashCache;
 use bitcoin::{
     consensus::Encodable,
-    hashes::{Hash},
+    hashes::Hash,
     secp256k1::{self, Secp256k1, SecretKey},
     EcdsaSighashType, PublicKey, Transaction, TxIn, Witness,
 };
@@ -14,10 +14,9 @@ use bitcoin::{
 };
 
 use crypto_bigint::{NonZero, U256};
+use rift_core::btc_light_client::AsLittleEndianBytes;
 use rift_core::lp::LiquidityReservation;
 use std::str::FromStr;
-
-use crate::to_little_endian;
 
 // Assuming you have a crate named `rift_lib` with these types
 
@@ -27,10 +26,7 @@ pub struct P2WPKHBitcoinWallet {
 }
 
 impl P2WPKHBitcoinWallet {
-    pub fn new(
-        secret_key: SecretKey,
-        public_key: String,
-    ) -> Self {
+    pub fn new(secret_key: SecretKey, public_key: String) -> Self {
         Self {
             secret_key,
             public_key,
@@ -47,10 +43,7 @@ impl P2WPKHBitcoinWallet {
             &CompressedPublicKey::from_private_key(&secp, &pk).unwrap(),
             network,
         );
-        Self::new(
-            secret_key,
-            public_key.to_string()
-        )
+        Self::new(secret_key, public_key.to_string())
     }
 
     pub fn get_p2wpkh_script(&self) -> ScriptBuf {
@@ -104,10 +97,7 @@ pub fn build_rift_payment_transaction(
 ) -> Transaction {
     // Fetch transaction data (you'll need to implement this function)
 
-    let total_lp_sum_btc: u64 = liquidity_providers
-        .iter()
-        .map(|lp| lp.expected_sats)
-        .sum();
+    let total_lp_sum_btc: u64 = liquidity_providers.iter().map(|lp| lp.expected_sats).sum();
 
     let vin_sats = transaction.output[in_txvout as usize].value.to_sat();
 
@@ -145,7 +135,12 @@ pub fn build_rift_payment_transaction(
 
     // Create input
     let outpoint = OutPoint::new(
-        Txid::from_slice(to_little_endian::<32>(in_txid).as_slice()).unwrap(),
+        Txid::from_slice(
+            &TryInto::<[u8; 32]>::try_into((in_txid).as_slice())
+                .unwrap()
+                .to_little_endian(),
+        )
+        .unwrap(),
         in_txvout,
     );
     let tx_in = TxIn {

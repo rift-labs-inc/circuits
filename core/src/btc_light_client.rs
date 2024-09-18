@@ -1,6 +1,21 @@
-use crypto_bigint::U256;
+use crypto_bigint::CheckedAdd;
+use crypto_bigint::{Integer, U256};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+pub trait AsLittleEndianBytes<const N: usize> {
+    fn to_little_endian(&self) -> [u8; N];
+}
+
+impl<const N: usize> AsLittleEndianBytes<N> for [u8; N] {
+    fn to_little_endian(&self) -> [u8; N] {
+        let mut output = [0; N];
+        for (i, &byte) in self.iter().enumerate() {
+            output[N - 1 - i] = byte;
+        }
+        output
+    }
+}
 
 #[derive(Default, Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct Block {
@@ -37,6 +52,16 @@ impl Block {
         hash.reverse();
         hash
     }
+
+    pub fn compute_chainwork(&self, previous_block_chainwork: U256) -> U256 {
+        previous_block_chainwork
+            .checked_add(
+                &U256::MAX
+                    .checked_div(&bits_to_target(self.bits).checked_add(&U256::ONE).unwrap())
+                    .unwrap(),
+            )
+            .unwrap()
+    }
 }
 
 // taken from rust-bitcoin
@@ -70,14 +95,6 @@ pub fn assert_pow(proposed_block_hash: &[u8; 32], proposed_block: &Block, propos
     );
 }
 
-pub fn to_little_endian<const N: usize>(input: [u8; N]) -> [u8; N] {
-    let mut output = [0; N];
-    for (i, &byte) in input.iter().enumerate() {
-        output[N - 1 - i] = byte;
-    }
-    output
-}
-
 pub fn verify_block(
     proposed_block_hash: [u8; 32],
     previous_block_hash: [u8; 32],
@@ -101,7 +118,7 @@ pub fn verify_block(
 
     // [3] verify the proposed prev_block_hash matches real previous_block_hash
     assert_eq!(
-        to_little_endian(proposed_block.prev_blockhash),
+        proposed_block.prev_blockhash.to_little_endian(),
         previous_block_hash,
         "Proposed prev_block hash does not match real prev_block hash"
     );
@@ -113,22 +130,19 @@ pub fn verify_block(
 pub fn assert_blockchain(
     commited_block_hashes: Vec<[u8; 32]>,
     safe_block_height: u64,
+    safe_block_chainwork: U256,
     retarget_block_hash: [u8; 32],
     retarget_block_height: u64,
+    confirmation_block_chainwork: U256,
     blocks: Vec<Block>,
     retarget_block: Block,
 ) {
     let last_block_height = safe_block_height + blocks.len() as u64 - 1;
-    assert!(
-        (safe_block_height - (safe_block_height % 2016) == retarget_block_height)
-            && (last_block_height - (last_block_height % 2016) == retarget_block_height),
-        "Retarget block height changes in the range of blocks being proven"
-    );
 
     assert_eq!(
         retarget_block.compute_block_hash(),
         retarget_block_hash,
-        "Retarget block hash mismatch"
+        "Initial Retarget block hash mismatch"
     );
 
     assert_eq!(
@@ -136,6 +150,9 @@ pub fn assert_blockchain(
         blocks.len(),
         "Block count mismatch between commited block hashes and blocks provided"
     );
+
+    let mut current_chainwork = safe_block_chainwork;
+    let mut last_retarget_block = retarget_block;
     // the first block in this array is a safe block aka known to the contract
     for i in 0..blocks.len() - 1 {
         let current_block = &blocks[i];
@@ -149,16 +166,32 @@ pub fn assert_blockchain(
         assert_eq!(
             next_block_hash,
             commited_block_hashes[i + 1],
-            "Commitment block hash mismatch"
+            "Commited block hash mismatch"
         );
+
+        // Change retarget block if necessary
+        if current_block.height % 2016 == 0 {
+            last_retarget_block = current_block.clone();
+        }
+
+        // Update chainwork
+        current_chainwork = current_block.compute_chainwork(current_chainwork);
+
         verify_block(
             next_block_hash,
             current_block_hash,
             next_block,
-            &retarget_block,
+            &last_retarget_block,
             safe_block_height + i as u64,
         );
     }
+    current_chainwork = blocks.last().unwrap().compute_chainwork(current_chainwork);
+
+    assert_eq!(
+        current_chainwork, confirmation_block_chainwork,
+        "Chainwork mismatch"
+    );
+
     assert_eq!(
         blocks.last().unwrap().compute_block_hash(),
         *commited_block_hashes.last().unwrap(),

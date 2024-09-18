@@ -4,32 +4,38 @@ use bitcoin::Block;
 
 use crypto_bigint::U256;
 
+use rift_core::btc_light_client::AsLittleEndianBytes;
 use rift_core::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
 
 use crate::transaction::serialize_no_segwit;
 use crate::{
-    generate_merkle_proof_and_root, get_retarget_height_from_block_height,
-    to_little_endian, to_rift_optimized_block,
+    generate_merkle_proof_and_root, get_retarget_height_from_block_height, AsRiftOptimizedBlock,
 };
 use rift_core::{CircuitInput, CircuitPublicValues};
 
 use sp1_sdk::{ExecutionReport, ProverClient, SP1Stdin};
 
-
 pub fn build_proof_input(
     order_nonce: &[u8; 32],
     liquidity_reservations: &Vec<LiquidityReservation>,
+    safe_chainwork: U256,
     blocks: &Vec<Block>,
     proposed_block_index: usize,
     proposed_txid: &[u8; 32],
     retarget_block: &Block,
 ) -> CircuitInput {
     let proposed_block = &blocks[proposed_block_index];
+    let confirmation_chainwork = blocks
+        .iter()
+        .map(|block| block.as_rift_optimized_block())
+        .fold(safe_chainwork, |chainwork_acc, block| {
+            block.compute_chainwork(chainwork_acc)
+        });
 
     let proposed_transaction = proposed_block
         .txdata
         .iter()
-        .find(|tx| to_little_endian(tx.compute_txid().to_byte_array()) == *proposed_txid);
+        .find(|tx| tx.compute_txid().to_byte_array().to_little_endian() == *proposed_txid);
 
     assert!(
         proposed_transaction.is_some(),
@@ -42,19 +48,23 @@ pub fn build_proof_input(
         proposed_block
             .txdata
             .iter()
-            .map(|tx| to_little_endian(*tx.compute_txid().as_raw_hash().as_byte_array()))
+            .map(|tx| {
+                tx.compute_txid()
+                    .as_raw_hash()
+                    .as_byte_array()
+                    .to_little_endian()
+            })
             .collect(),
         *proposed_txid,
     );
 
     assert_eq!(
         calculated_merkle_root,
-        to_little_endian(
-            proposed_block
-                .compute_merkle_root()
-                .unwrap()
-                .to_byte_array()
-        ),
+        proposed_block
+            .compute_merkle_root()
+            .unwrap()
+            .to_byte_array()
+            .to_little_endian(),
         "Invalid merkle root"
     );
 
@@ -65,31 +75,35 @@ pub fn build_proof_input(
 
     CircuitInput::new(
         CircuitPublicValues::new(
-            to_little_endian(proposed_transaction.compute_txid().to_byte_array()),
-            to_little_endian(proposed_block.header.merkle_root.to_byte_array()),
+            proposed_transaction
+                .compute_txid()
+                .to_byte_array()
+                .to_little_endian(),
+            proposed_block
+                .header
+                .merkle_root
+                .to_byte_array()
+                .to_little_endian(),
             compute_lp_hash(
                 &lp_reservation_data_encoded.to_vec(),
                 liquidity_reservations.len() as u32,
             ),
             *order_nonce,
             liquidity_reservations.len() as u64,
-            /*
-             *lp_count: u64,
-            retarget_block_hash: [u8; 32],
-            safe_block_height: u64,
-            safe_block_height_delta: u64,
-            confirmation_block_height_delta: u64,
-            retarget_block_height: u64,
-
-             */
-            to_little_endian(retarget_block.header.block_hash().to_byte_array()),
+            retarget_block
+                .header
+                .block_hash()
+                .to_byte_array()
+                .to_little_endian(),
             safe_block_height as u64,
             proposed_block_index as u64,
+            safe_chainwork,
             blocks.len() as u64 - 1 - proposed_block_index as u64,
+            confirmation_chainwork,
             retarget_block_height,
             blocks
                 .iter()
-                .map(|block| to_little_endian(block.header.block_hash().to_byte_array()))
+                .map(|block| block.header.block_hash().to_byte_array().to_little_endian())
                 .collect(),
         ),
         mined_transaction_serialized_no_segwit,
@@ -97,10 +111,9 @@ pub fn build_proof_input(
         lp_reservation_data_encoded.to_vec(),
         blocks
             .iter()
-            .enumerate()
-            .map(|(i, block)| to_rift_optimized_block(safe_block_height + i as u64, block))
+            .map(|block| block.as_rift_optimized_block())
             .collect(),
-        to_rift_optimized_block(retarget_block_height, &retarget_block),
+        retarget_block.as_rift_optimized_block(),
     )
 }
 

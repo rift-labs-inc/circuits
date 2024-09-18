@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
 
-    use bitcoin::{consensus::encode::deserialize, hashes::Hash};
     use bitcoin::Block;
+    use bitcoin::{consensus::encode::deserialize, hashes::Hash};
 
     use hex_literal::hex;
     use rift_core::tx_hash::{get_natural_txid, sha256_hash};

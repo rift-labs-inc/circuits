@@ -9,12 +9,13 @@ mod tests {
     use crypto_bigint::U256;
     use hex_literal::hex;
 
+    use rift_core::btc_light_client::AsLittleEndianBytes;
     use rift_core::lp::{encode_liquidity_providers, LiquidityReservation};
     use rift_core::payment::{assert_bitcoin_payment, compint_to_u64};
     use rift_lib::transaction::{
         build_rift_payment_transaction, serialize_no_segwit, P2WPKHBitcoinWallet,
     };
-    use rift_lib::{load_hex_bytes, to_hex_string, to_little_endian};
+    use rift_lib::{load_hex_bytes, to_hex_string};
 
     fn get_test_wallet() -> P2WPKHBitcoinWallet {
         P2WPKHBitcoinWallet::from_secret_key(
@@ -75,13 +76,13 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            to_little_endian(block.header.block_hash().to_byte_array()),
+            block.header.block_hash().to_byte_array().to_little_endian(),
             utilized_block_hash
         );
         let utilized_transaction = block
             .txdata
             .iter()
-            .find(|tx| to_little_endian(tx.compute_txid().to_byte_array()) == utilized_txid);
+            .find(|tx| tx.compute_txid().to_byte_array().to_little_endian() == utilized_txid);
         assert!(
             utilized_transaction.is_some(),
             "Proposed transaction not found in the block"
@@ -90,7 +91,10 @@ mod tests {
         let utilized_transaction = utilized_transaction.unwrap();
 
         assert_eq!(
-            to_little_endian(utilized_transaction.compute_txid().to_byte_array()),
+            utilized_transaction
+                .compute_txid()
+                .to_byte_array()
+                .to_little_endian(),
             utilized_txid,
             "Proposed transaction ID does not match the utilized transaction ID",
         );

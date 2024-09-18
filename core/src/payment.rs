@@ -90,9 +90,7 @@ fn assert_payment_utxos_exist(
 
     for i in 0..MAX_LIQUIDITY_PROVIDERS {
         if i < lp_count as usize {
-            let value = to_int::<8>(grab_bytes_le::<8>(
-                &txn_data[data_pointer as usize..],
-            ));
+            let value = to_int::<8>(grab_bytes_le::<8>(&txn_data[data_pointer as usize..]));
             data_pointer += AMOUNT_LEN as u64;
             let (sig_counter, sig_counter_byte_len) =
                 extract_int_from_compint_pointer(data_pointer, txn_data);

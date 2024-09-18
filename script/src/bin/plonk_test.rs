@@ -87,7 +87,6 @@ fn main() {
     // Setup the inputs.
     let mut stdin = SP1Stdin::new();
 
-    // TODO: Update this to match the expected inputs of the program.
     stdin.write(&circuit_input);
     println!("Inputs serialized successfully.");
 

@@ -6,17 +6,19 @@ mod tests {
 
     use bitcoin::Block;
 
+    use crypto_bigint::Encoding;
     use crypto_bigint::U256;
     use hex_literal::hex;
 
     use rift_core::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
 
+    use rift_core::btc_light_client::AsLittleEndianBytes;
+    use rift_core::{validate_rift_transaction, CircuitInput, CircuitPublicValues};
     use rift_lib::transaction::serialize_no_segwit;
     use rift_lib::{
         generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes,
-        to_little_endian, to_rift_optimized_block,
+        AsRiftOptimizedBlock,
     };
-    use rift_core::{validate_rift_transaction, CircuitInput, CircuitPublicValues};
 
     fn get_test_case_circuit_input() -> CircuitInput {
         let order_nonce = hex!("f0ad57e677a89d2c2aaae4c5fd52ba20c63c0a05c916619277af96435f874c64");
@@ -36,7 +38,9 @@ mod tests {
         ];
 
         let lp_reservation_data_encoded = encode_liquidity_providers(&lp_reservations);
-
+        let safe_chainwork = U256::from_be_bytes(hex!(
+            "000000000000000000000000000000000000000085ed2ff0a553f14e4d649ce0"
+        ));
 
         let mined_blocks = [
             deserialize::<Block>(&load_hex_bytes("data/block_854373.hex")).unwrap(),
@@ -47,6 +51,13 @@ mod tests {
             deserialize::<Block>(&load_hex_bytes("data/block_854378.hex")).unwrap(),
             deserialize::<Block>(&load_hex_bytes("data/block_854379.hex")).unwrap(),
         ];
+
+        let confirmation_chainwork = mined_blocks
+            .iter()
+            .map(|block| block.as_rift_optimized_block())
+            .fold(safe_chainwork, |chainwork_acc, block| {
+                block.compute_chainwork(chainwork_acc)
+            });
 
         let mined_block_height = 854374;
         let mined_block = deserialize::<Block>(&load_hex_bytes(
@@ -65,7 +76,7 @@ mod tests {
         let mined_transaction = mined_block
             .txdata
             .iter()
-            .find(|tx| to_little_endian(tx.compute_txid().to_byte_array()) == mined_txid);
+            .find(|tx| tx.compute_txid().to_byte_array().to_little_endian() == mined_txid);
 
         assert!(
             mined_transaction.is_some(),
@@ -74,42 +85,67 @@ mod tests {
         let mined_transaction = mined_transaction.unwrap();
         let mined_transaction_serialized_no_segwit = serialize_no_segwit(&mined_transaction);
 
-        let txn = to_little_endian(*mined_transaction.compute_txid().as_byte_array());
+        let txn = mined_transaction
+            .compute_txid()
+            .as_byte_array()
+            .to_little_endian();
 
         let (merkle_proof, calculated_merkle_root) = generate_merkle_proof_and_root(
             mined_block
                 .txdata
                 .iter()
-                .map(|tx| to_little_endian(*tx.compute_txid().as_raw_hash().as_byte_array()))
+                .map(|tx| {
+                    tx.compute_txid()
+                        .as_raw_hash()
+                        .as_byte_array()
+                        .to_little_endian()
+                })
                 .collect(),
             txn,
         );
 
         assert_eq!(
             calculated_merkle_root,
-            to_little_endian(mined_block.compute_merkle_root().unwrap().to_byte_array()),
+            mined_block
+                .compute_merkle_root()
+                .unwrap()
+                .to_byte_array()
+                .to_little_endian(),
             "Invalid merkle root"
         );
         println!("Merkle proof generated successfully.");
 
         CircuitInput::new(
             CircuitPublicValues::new(
-                to_little_endian(mined_transaction.compute_txid().to_byte_array()),
-                to_little_endian(mined_block.header.merkle_root.to_byte_array()),
+                mined_transaction
+                    .compute_txid()
+                    .to_byte_array()
+                    .to_little_endian(),
+                mined_block
+                    .header
+                    .merkle_root
+                    .to_byte_array()
+                    .to_little_endian(),
                 compute_lp_hash(
                     &lp_reservation_data_encoded.to_vec(),
                     lp_reservations.len() as u32,
                 ),
                 order_nonce,
                 lp_reservations.len() as u64,
-                to_little_endian(mined_retarget_block.header.block_hash().to_byte_array()),
+                mined_retarget_block
+                    .header
+                    .block_hash()
+                    .to_byte_array()
+                    .to_little_endian(),
                 mined_block_height - 1,
                 1,
+                safe_chainwork,
                 5,
+                confirmation_chainwork,
                 retarget_block_height,
                 mined_blocks
                     .iter()
-                    .map(|block| to_little_endian(block.header.block_hash().to_byte_array()))
+                    .map(|block| block.header.block_hash().to_byte_array().to_little_endian())
                     .collect(),
             ),
             mined_transaction_serialized_no_segwit,
@@ -117,10 +153,9 @@ mod tests {
             lp_reservation_data_encoded.to_vec(),
             mined_blocks
                 .iter()
-                .enumerate()
-                .map(|(i, block)| to_rift_optimized_block(mined_block_height - 1 + i as u64, block))
+                .map(|block| block.as_rift_optimized_block())
                 .collect(),
-            to_rift_optimized_block(retarget_block_height, &mined_retarget_block),
+            mined_retarget_block.as_rift_optimized_block(),
         )
     }
 

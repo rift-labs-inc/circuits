@@ -8,10 +8,7 @@ pub struct LiquidityReservation {
     pub script_pub_key: [u8; 22],
 }
 
-pub fn build_hashable_chunk(
-    lp_data: [[u8; 32]; 2],
-    intermediate_vault_hash: [u8; 32],
-) -> [u8; 96] {
+pub fn build_hashable_chunk(lp_data: [[u8; 32]; 2], intermediate_vault_hash: [u8; 32]) -> [u8; 96] {
     let mut solidity_encoded_lp_data = [0u8; 96];
     solidity_encoded_lp_data[0..64].copy_from_slice(&lp_data[0..2].concat());
     // Copy the last 32-byte chunk from the intermediate vault hash
@@ -28,7 +25,7 @@ pub fn decode_liqudity_providers(
     }; MAX_LIQUIDITY_PROVIDERS];
 
     for i in 0..MAX_LIQUIDITY_PROVIDERS {
-        // Extract sats expected 
+        // Extract sats expected
         liquidity_providers[i].expected_sats = u64::from_be_bytes(
             liquidity_providers_encoded[i][0][32 - 8..]
                 .try_into()
@@ -54,7 +51,7 @@ pub fn encode_liquidity_providers(
     let mut liquidity_providers_encoded = [[[0u8; 32]; 2]; MAX_LIQUIDITY_PROVIDERS];
 
     for i in 0..liquidity_providers.len() {
-        // Encode sats expected 
+        // Encode sats expected
         liquidity_providers_encoded[i][0][32 - 8..]
             .copy_from_slice(&liquidity_providers[i].expected_sats.to_be_bytes());
 

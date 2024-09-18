@@ -5,26 +5,32 @@ mod tests {
     use bitcoin::hex::DisplayHex;
     use bitcoin::Block;
 
-    use rift_core::sha256_merkle::assert_merkle_proof_equality;
-    use rift_lib::{generate_merkle_proof_and_root, load_hex_bytes, to_little_endian};
+    use rift_core::{
+        btc_light_client::AsLittleEndianBytes, sha256_merkle::assert_merkle_proof_equality,
+    };
+    use rift_lib::{generate_merkle_proof_and_root, load_hex_bytes};
 
     #[test]
     fn test_real_merkle_root() {
         let block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
-        let le_merkle_root = to_little_endian(*block.header.merkle_root.as_byte_array());
+        let le_merkle_root = block.header.merkle_root.as_byte_array().to_little_endian();
         let txn_index = 5;
-        let txn = to_little_endian(
-            *block.txdata[txn_index]
-                .compute_txid()
-                .as_raw_hash()
-                .as_byte_array(),
-        );
+        let txn = block.txdata[txn_index]
+            .compute_txid()
+            .as_raw_hash()
+            .as_byte_array()
+            .to_little_endian();
 
         let (merkle_proof, calculated_merkle_root) = generate_merkle_proof_and_root(
             block
                 .txdata
                 .iter()
-                .map(|tx| to_little_endian(*tx.compute_txid().as_raw_hash().as_byte_array()))
+                .map(|tx| {
+                    tx.compute_txid()
+                        .as_raw_hash()
+                        .as_byte_array()
+                        .to_little_endian()
+                })
                 .collect(),
             txn,
         );
@@ -49,26 +55,30 @@ mod tests {
     #[should_panic(expected = "Merkle proof verification failed")]
     fn test_real_merkle_root_invalid_verification_txn() {
         let block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
-        let le_merkle_root = to_little_endian(*block.header.merkle_root.as_byte_array());
+        let le_merkle_root = block.header.merkle_root.as_byte_array().to_little_endian();
         let txn_index = 5;
-        let txn = to_little_endian(
-            *block.txdata[txn_index]
-                .compute_txid()
-                .as_raw_hash()
-                .as_byte_array(),
-        );
-        let different_txn = to_little_endian(
-            *block.txdata[txn_index + 1]
-                .compute_txid()
-                .as_raw_hash()
-                .as_byte_array(),
-        );
+        let txn = block.txdata[txn_index]
+            .compute_txid()
+            .as_raw_hash()
+            .as_byte_array()
+            .to_little_endian();
+
+        let different_txn = block.txdata[txn_index + 1]
+            .compute_txid()
+            .as_raw_hash()
+            .as_byte_array()
+            .to_little_endian();
 
         let (merkle_proof, calculated_merkle_root) = generate_merkle_proof_and_root(
             block
                 .txdata
                 .iter()
-                .map(|tx| to_little_endian(*tx.compute_txid().as_raw_hash().as_byte_array()))
+                .map(|tx| {
+                    tx.compute_txid()
+                        .as_raw_hash()
+                        .as_byte_array()
+                        .to_little_endian()
+                })
                 .collect(),
             txn,
         );

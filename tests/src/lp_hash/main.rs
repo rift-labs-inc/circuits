@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use rift_core::lp::{assert_lp_hash, build_hashable_chunk, compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
+    use rift_core::lp::{
+        assert_lp_hash, build_hashable_chunk, compute_lp_hash, encode_liquidity_providers,
+        LiquidityReservation,
+    };
 
     use hex_literal::hex;
 
@@ -8,12 +11,10 @@ mod tests {
 
     #[test]
     fn test_assert_lp_hash() {
-        let liquidity_providers = vec![
-            LiquidityReservation {
-                expected_sats: 1230,
-                script_pub_key: hex!("0014841b80d2cc75f5345c482af96294d04fdd66b2b7"),
-            }
-        ];
+        let liquidity_providers = vec![LiquidityReservation {
+            expected_sats: 1230,
+            script_pub_key: hex!("0014841b80d2cc75f5345c482af96294d04fdd66b2b7"),
+        }];
 
         let encoded_lps = encode_liquidity_providers(&liquidity_providers);
 

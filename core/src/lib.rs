@@ -80,7 +80,9 @@ pub struct CircuitPublicValues {
     pub retarget_block_hash: [u8; 32],
     pub safe_block_height: u64,
     pub safe_block_height_delta: u64,
+    pub safe_chainwork: [u8; 32],
     pub confirmation_block_height_delta: u64,
+    pub confirmation_chainwork: [u8; 32],
     pub retarget_block_height: u64,
     #[serde(with = "arrays")]
     pub block_hashes: [[u8; 32]; MAX_BLOCKS],
@@ -96,7 +98,9 @@ sol! {
         bytes32 retarget_block_hash;
         uint64 safe_block_height;
         uint64 safe_block_height_delta;
+        uint256 safe_chainwork;
         uint64 confirmation_block_height_delta;
+        uint256 confirmation_chainwork;
         uint64 retarget_block_height;
         bytes32[] block_hashes;
     }
@@ -113,7 +117,9 @@ impl Default for CircuitPublicValues {
             retarget_block_hash: [0u8; 32],
             safe_block_height: 0,
             safe_block_height_delta: 0,
+            safe_chainwork: [0u8; 32],
             confirmation_block_height_delta: 0,
+            confirmation_chainwork: [0u8; 32],
             retarget_block_height: 0,
             block_hashes: [[0u8; 32]; MAX_BLOCKS],
         }
@@ -130,7 +136,9 @@ impl CircuitPublicValues {
         retarget_block_hash: [u8; 32],
         safe_block_height: u64,
         safe_block_height_delta: u64,
+        safe_chainwork: U256,
         confirmation_block_height_delta: u64,
+        confirmation_chainwork: U256,
         retarget_block_height: u64,
         block_hashes: Vec<[u8; 32]>,
     ) -> Self {
@@ -138,7 +146,6 @@ impl CircuitPublicValues {
         for (i, block_hash) in block_hashes.iter().enumerate() {
             padded_block_hashes[i] = *block_hash;
         }
-
         Self {
             natural_txid,
             merkle_root,
@@ -148,7 +155,9 @@ impl CircuitPublicValues {
             retarget_block_hash,
             safe_block_height,
             safe_block_height_delta,
+            safe_chainwork: safe_chainwork.to_be_bytes(),
             confirmation_block_height_delta,
+            confirmation_chainwork: confirmation_chainwork.to_be_bytes(),
             retarget_block_height,
             block_hashes: padded_block_hashes,
         }
@@ -216,7 +225,6 @@ impl CircuitInput {
     }
 }
 
-// Implement Default for CircuitInput
 impl Default for CircuitInput {
     fn default() -> Self {
         Self {
@@ -249,8 +257,10 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
     btc_light_client::assert_blockchain(
         circuit_input.public_values.block_hashes[0..(blocks.len() as usize)].to_vec(),
         circuit_input.public_values.safe_block_height,
+        U256::from_be_slice(&circuit_input.public_values.safe_chainwork),
         circuit_input.public_values.retarget_block_hash,
         circuit_input.public_values.retarget_block_height,
+        U256::from_be_slice(&circuit_input.public_values.confirmation_chainwork),
         blocks,
         circuit_input.retarget_block,
     );

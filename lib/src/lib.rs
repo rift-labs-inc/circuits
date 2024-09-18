@@ -14,14 +14,6 @@ pub fn load_hex_bytes(file: &str) -> Vec<u8> {
     Vec::<u8>::from_hex(&hex_string).expect("Failed to parse hex")
 }
 
-pub fn to_little_endian<const N: usize>(input: [u8; N]) -> [u8; N] {
-    let mut output = [0; N];
-    for (i, &byte) in input.iter().enumerate() {
-        output[N - 1 - i] = byte;
-    }
-    output
-}
-
 pub fn to_hex_string(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
     for &b in bytes {
@@ -87,14 +79,20 @@ pub fn generate_merkle_proof_and_root(
     (proof, merkle_root)
 }
 
-pub fn to_rift_optimized_block(height: u64, block: &bitcoin::Block) -> RiftOptimizedBlock {
-    RiftOptimizedBlock {
-        height,
-        version: block.header.version.to_consensus().to_le_bytes(),
-        prev_blockhash: block.header.prev_blockhash.to_raw_hash().to_byte_array(),
-        merkle_root: block.header.merkle_root.to_raw_hash().to_byte_array(),
-        time: block.header.time.to_le_bytes(),
-        bits: block.header.bits.to_consensus().to_le_bytes(),
-        nonce: block.header.nonce.to_le_bytes(),
+pub trait AsRiftOptimizedBlock {
+    fn as_rift_optimized_block(&self) -> RiftOptimizedBlock;
+}
+
+impl AsRiftOptimizedBlock for bitcoin::Block {
+    fn as_rift_optimized_block(&self) -> RiftOptimizedBlock {
+        RiftOptimizedBlock {
+            height: self.bip34_block_height().unwrap(),
+            version: self.header.version.to_consensus().to_le_bytes(),
+            prev_blockhash: self.header.prev_blockhash.to_raw_hash().to_byte_array(),
+            merkle_root: self.header.merkle_root.to_raw_hash().to_byte_array(),
+            time: self.header.time.to_le_bytes(),
+            bits: self.header.bits.to_consensus().to_le_bytes(),
+            nonce: self.header.nonce.to_le_bytes(),
+        }
     }
 }
