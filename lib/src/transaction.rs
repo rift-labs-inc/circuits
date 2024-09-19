@@ -21,15 +21,17 @@ use std::str::FromStr;
 // Assuming you have a crate named `rift_lib` with these types
 
 pub struct P2WPKHBitcoinWallet {
-    secret_key: SecretKey,
-    public_key: String,
+    pub secret_key: SecretKey,
+    pub public_key: String,
+    pub address: String,
 }
 
 impl P2WPKHBitcoinWallet {
-    pub fn new(secret_key: SecretKey, public_key: String) -> Self {
+    pub fn new(secret_key: SecretKey, public_key: String, address: String) -> Self {
         Self {
             secret_key,
             public_key,
+            address
         }
     }
 
@@ -39,11 +41,11 @@ impl P2WPKHBitcoinWallet {
         let pk = PrivateKey::new(secret_key, network);
         let public_key = PublicKey::from_private_key(&secp, &pk);
         let _unlock_script = public_key.p2wpkh_script_code().unwrap().to_bytes();
-        let _address = Address::p2wpkh(
+        let address = Address::p2wpkh(
             &CompressedPublicKey::from_private_key(&secp, &pk).unwrap(),
             network,
         );
-        Self::new(secret_key, public_key.to_string())
+        Self::new(secret_key, public_key.to_string(), address.to_string())
     }
 
     pub fn get_p2wpkh_script(&self) -> ScriptBuf {
