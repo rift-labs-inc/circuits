@@ -1,3 +1,4 @@
+use bitcoin::address::NetworkChecked;
 use bitcoin::locktime::absolute::LockTime;
 use bitcoin::opcodes::all::OP_RETURN;
 use bitcoin::script::Builder;
@@ -23,11 +24,11 @@ use std::str::FromStr;
 pub struct P2WPKHBitcoinWallet {
     pub secret_key: SecretKey,
     pub public_key: String,
-    pub address: String,
+    pub address: Address<NetworkChecked>,
 }
 
 impl P2WPKHBitcoinWallet {
-    pub fn new(secret_key: SecretKey, public_key: String, address: String) -> Self {
+    pub fn new(secret_key: SecretKey, public_key: String, address: Address<NetworkChecked>) -> Self {
         Self {
             secret_key,
             public_key,
@@ -45,7 +46,7 @@ impl P2WPKHBitcoinWallet {
             &CompressedPublicKey::from_private_key(&secp, &pk).unwrap(),
             network,
         );
-        Self::new(secret_key, public_key.to_string(), address.to_string())
+        Self::new(secret_key, public_key.to_string(), address)
     }
 
     pub fn get_p2wpkh_script(&self) -> ScriptBuf {
