@@ -9,7 +9,7 @@ use rift_core::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReserv
 
 use crate::transaction::serialize_no_segwit;
 use crate::{
-    generate_merkle_proof_and_root, get_retarget_height_from_block_height, AsRiftOptimizedBlock,
+    generate_merkle_proof_and_root, AsRiftOptimizedBlock,
 };
 use rift_core::{CircuitInput, CircuitPublicValues};
 

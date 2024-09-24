@@ -7,7 +7,7 @@ pub mod tx_hash;
 
 use alloy_sol_types::sol;
 use constants::{MAX_BLOCKS, MAX_LIQUIDITY_PROVIDERS, MAX_MERKLE_PROOF_STEPS, MAX_TX_SIZE};
-use crypto_bigint::{Encoding, U256};
+use crypto_bigint::U256;
 use serde::{Deserialize, Serialize};
 use sha256_merkle::MerkleProofStep;
 
@@ -100,7 +100,7 @@ sol! {
         uint64 safe_block_height_delta;
         uint64 confirmation_block_height_delta;
         bytes32[] block_hashes;
-        bytes32[] block_chainworks;
+        uint256[] block_chainworks;
     }
 }
 

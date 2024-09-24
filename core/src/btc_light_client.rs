@@ -177,9 +177,6 @@ pub fn assert_blockchain(
             "Chainwork mismatch"
         );
 
-        println!("Block height: {}", safe_block_height + i as u64);
-        println!("Current chainwork: {}", current_chainwork);
-
         // Update chainwork
         current_chainwork = next_block.compute_chainwork(current_chainwork);
 

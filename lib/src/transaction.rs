@@ -77,7 +77,7 @@ pub fn get_chainworks(blocks: &[RiftOptimizedBlock], initial_chainwork: U256) ->
         .collect()
 }
 
-fn wei_to_satoshi(wei_amount: U256, wei_sats_exchange_rate: u64) -> u64 {
+pub fn wei_to_satoshi(wei_amount: U256, wei_sats_exchange_rate: u64) -> u64 {
     let rate =
         NonZero::new(U256::from_u64(wei_sats_exchange_rate)).expect("Exchange rate cannot be zero");
 
