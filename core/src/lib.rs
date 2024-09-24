@@ -80,29 +80,27 @@ pub struct CircuitPublicValues {
     pub retarget_block_hash: [u8; 32],
     pub safe_block_height: u64,
     pub safe_block_height_delta: u64,
-    pub safe_chainwork: [u8; 32],
     pub confirmation_block_height_delta: u64,
-    pub confirmation_chainwork: [u8; 32],
-    pub retarget_block_height: u64,
     #[serde(with = "arrays")]
     pub block_hashes: [[u8; 32]; MAX_BLOCKS],
+    #[serde(with = "arrays")]
+    pub block_chainworks: [[u8; 32]; MAX_BLOCKS],
 }
 
 sol! {
     /// The public values encoded as a struct that can be easily deserialized inside Solidity.
     struct SolidityPublicValues {
         bytes32 natural_txid;
+        bytes32 merkle_root;
         bytes32 lp_reservation_hash;
         bytes32 order_nonce;
         uint64 lp_count;
         bytes32 retarget_block_hash;
         uint64 safe_block_height;
         uint64 safe_block_height_delta;
-        uint256 safe_chainwork;
         uint64 confirmation_block_height_delta;
-        uint256 confirmation_chainwork;
-        uint64 retarget_block_height;
         bytes32[] block_hashes;
+        bytes32[] block_chainworks;
     }
 }
 
@@ -117,11 +115,9 @@ impl Default for CircuitPublicValues {
             retarget_block_hash: [0u8; 32],
             safe_block_height: 0,
             safe_block_height_delta: 0,
-            safe_chainwork: [0u8; 32],
             confirmation_block_height_delta: 0,
-            confirmation_chainwork: [0u8; 32],
-            retarget_block_height: 0,
             block_hashes: [[0u8; 32]; MAX_BLOCKS],
+            block_chainworks: [[0u8; 32]; MAX_BLOCKS],
         }
     }
 }
@@ -136,15 +132,17 @@ impl CircuitPublicValues {
         retarget_block_hash: [u8; 32],
         safe_block_height: u64,
         safe_block_height_delta: u64,
-        safe_chainwork: U256,
         confirmation_block_height_delta: u64,
-        confirmation_chainwork: U256,
-        retarget_block_height: u64,
         block_hashes: Vec<[u8; 32]>,
+        block_chainworks: Vec<[u8; 32]> 
     ) -> Self {
         let mut padded_block_hashes = [[0u8; 32]; MAX_BLOCKS];
         for (i, block_hash) in block_hashes.iter().enumerate() {
             padded_block_hashes[i] = *block_hash;
+        }
+        let mut padded_block_chainworks = [[0u8; 32]; MAX_BLOCKS];
+        for (i, block_chainwork) in block_chainworks.iter().enumerate() {
+            padded_block_chainworks[i] = *block_chainwork;
         }
         Self {
             natural_txid,
@@ -155,11 +153,9 @@ impl CircuitPublicValues {
             retarget_block_hash,
             safe_block_height,
             safe_block_height_delta,
-            safe_chainwork: safe_chainwork.to_be_bytes(),
             confirmation_block_height_delta,
-            confirmation_chainwork: confirmation_chainwork.to_be_bytes(),
-            retarget_block_height,
             block_hashes: padded_block_hashes,
+            block_chainworks: padded_block_chainworks,
         }
     }
 }
@@ -253,14 +249,13 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
     let lp_reservation_data = circuit_input.lp_reservation_data
         [0..(circuit_input.utilized_lp_reservation_data as usize)]
         .to_vec();
+
     // Block Verification
     btc_light_client::assert_blockchain(
         circuit_input.public_values.block_hashes[0..(blocks.len() as usize)].to_vec(),
+        circuit_input.public_values.block_chainworks[0..(blocks.len() as usize)].to_vec().iter().map(|x| U256::from_be_slice(x)).collect(),
         circuit_input.public_values.safe_block_height,
-        U256::from_be_slice(&circuit_input.public_values.safe_chainwork),
         circuit_input.public_values.retarget_block_hash,
-        circuit_input.public_values.retarget_block_height,
-        U256::from_be_slice(&circuit_input.public_values.confirmation_chainwork),
         blocks,
         circuit_input.retarget_block,
     );

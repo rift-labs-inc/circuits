@@ -130,16 +130,12 @@ pub fn verify_block(
 
 pub fn assert_blockchain(
     commited_block_hashes: Vec<[u8; 32]>,
+    commited_block_chainworks: Vec<U256>,
     safe_block_height: u64,
-    safe_block_chainwork: U256,
     retarget_block_hash: [u8; 32],
-    _retarget_block_height: u64,
-    confirmation_block_chainwork: U256,
     blocks: Vec<Block>,
     retarget_block: Block,
 ) {
-    let _last_block_height = safe_block_height + blocks.len() as u64 - 1;
-
     assert_eq!(
         retarget_block.compute_block_hash(),
         retarget_block_hash,
@@ -152,7 +148,7 @@ pub fn assert_blockchain(
         "Block count mismatch between commited block hashes and blocks provided"
     );
 
-    let mut current_chainwork = safe_block_chainwork;
+    let mut current_chainwork = *commited_block_chainworks.first().unwrap();
     let mut last_retarget_block = retarget_block;
     // the first block in this array is a safe block aka known to the contract
     for i in 0..blocks.len() - 1 {
@@ -175,8 +171,17 @@ pub fn assert_blockchain(
             last_retarget_block = next_block.clone();
         }
 
+        // assert chainwork is equal to commited chainwork
+        assert_eq!(
+            current_chainwork, commited_block_chainworks[i],
+            "Chainwork mismatch"
+        );
+
+        println!("Block height: {}", safe_block_height + i as u64);
+        println!("Current chainwork: {}", current_chainwork);
+
         // Update chainwork
-        current_chainwork = current_block.compute_chainwork(current_chainwork);
+        current_chainwork = next_block.compute_chainwork(current_chainwork);
 
         verify_block(
             next_block_hash,
@@ -186,10 +191,9 @@ pub fn assert_blockchain(
             safe_block_height + i as u64,
         );
     }
-    current_chainwork = blocks.last().unwrap().compute_chainwork(current_chainwork);
 
     assert_eq!(
-        current_chainwork, confirmation_block_chainwork,
+        current_chainwork, *commited_block_chainworks.last().unwrap(),
         "Chainwork mismatch"
     );
 

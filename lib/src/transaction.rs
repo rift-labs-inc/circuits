@@ -16,6 +16,7 @@ use bitcoin::{
 
 use crypto_bigint::{NonZero, U256};
 use rift_core::btc_light_client::AsLittleEndianBytes;
+use rift_core::btc_light_client::Block as RiftOptimizedBlock;
 use rift_core::lp::LiquidityReservation;
 use std::str::FromStr;
 
@@ -28,11 +29,15 @@ pub struct P2WPKHBitcoinWallet {
 }
 
 impl P2WPKHBitcoinWallet {
-    pub fn new(secret_key: SecretKey, public_key: String, address: Address<NetworkChecked>) -> Self {
+    pub fn new(
+        secret_key: SecretKey,
+        public_key: String,
+        address: Address<NetworkChecked>,
+    ) -> Self {
         Self {
             secret_key,
             public_key,
-            address
+            address,
         }
     }
 
@@ -57,6 +62,19 @@ impl P2WPKHBitcoinWallet {
                 .expect("Invalid public key for P2WPKH"),
         )
     }
+}
+
+pub fn get_chainworks(blocks: &[RiftOptimizedBlock], initial_chainwork: U256) -> Vec<U256> {
+    vec![initial_chainwork]
+        .into_iter()
+        .chain(blocks.split_first().unwrap().1.iter().scan(
+            initial_chainwork,
+            |chainwork_acc, block| {
+                *chainwork_acc = block.compute_chainwork(*chainwork_acc);
+                Some(*chainwork_acc)
+            },
+        ))
+        .collect()
 }
 
 fn wei_to_satoshi(wei_amount: U256, wei_sats_exchange_rate: u64) -> u64 {

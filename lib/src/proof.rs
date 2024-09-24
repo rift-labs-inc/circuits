@@ -2,7 +2,7 @@ use bitcoin::hashes::Hash;
 
 use bitcoin::Block;
 
-use crypto_bigint::U256;
+use crypto_bigint::{Encoding, U256};
 
 use rift_core::btc_light_client::AsLittleEndianBytes;
 use rift_core::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
@@ -25,12 +25,15 @@ pub fn build_proof_input(
     retarget_block: &Block,
 ) -> CircuitInput {
     let proposed_block = &blocks[proposed_block_index];
-    let confirmation_chainwork = blocks
+    let chainworks: Vec<_> = blocks
         .iter()
         .map(|block| block.as_rift_optimized_block())
-        .fold(safe_chainwork, |chainwork_acc, block| {
-            block.compute_chainwork(chainwork_acc)
-        });
+        .scan(safe_chainwork, |chainwork_acc, block| {
+            *chainwork_acc = block.compute_chainwork(*chainwork_acc);
+            Some(*chainwork_acc)
+        })
+        .map(|chainwork| chainwork.to_be_bytes())
+        .collect();
 
     let proposed_transaction = proposed_block
         .txdata
@@ -71,7 +74,6 @@ pub fn build_proof_input(
     let lp_reservation_data_encoded = encode_liquidity_providers(&liquidity_reservations);
 
     let safe_block_height = blocks.first().unwrap().bip34_block_height().unwrap();
-    let retarget_block_height = get_retarget_height_from_block_height(safe_block_height as u64);
 
     CircuitInput::new(
         CircuitPublicValues::new(
@@ -97,14 +99,12 @@ pub fn build_proof_input(
                 .to_little_endian(),
             safe_block_height as u64,
             proposed_block_index as u64,
-            safe_chainwork,
             blocks.len() as u64 - 1 - proposed_block_index as u64,
-            confirmation_chainwork,
-            retarget_block_height,
             blocks
                 .iter()
                 .map(|block| block.header.block_hash().to_byte_array().to_little_endian())
                 .collect(),
+            chainworks,
         ),
         mined_transaction_serialized_no_segwit,
         merkle_proof,

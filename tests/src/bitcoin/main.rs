@@ -11,6 +11,7 @@ mod tests {
         assert_blockchain, assert_pow, bits_to_target, verify_block, AsLittleEndianBytes,
         Block as RiftOptimizedBlock,
     };
+    use rift_lib::transaction::get_chainworks;
     use rift_lib::{get_retarget_height_from_block_height, load_hex_bytes, AsRiftOptimizedBlock};
 
     #[test]
@@ -151,12 +152,44 @@ mod tests {
         )
     }
 
+
+    #[test]
+    fn test_chainwork_computation() {
+        let block_heights = vec![858564, 858565, 858566];
+        let blocks = block_heights
+            .iter()
+            .map(|height| {
+                deserialize::<Block>(&load_hex_bytes(&format!("data/block_{}.hex", height)))
+                    .unwrap()
+                    .as_rift_optimized_block()
+            })
+            .collect::<Vec<RiftOptimizedBlock>>();
+
+        let known_block_chainworks = vec![
+            U256::from_be_bytes(hex!(
+                "00000000000000000000000000000000000000008b0ed4006167d9147181e166"
+            )),
+            U256::from_be_bytes(hex!(
+                "00000000000000000000000000000000000000008b0f230307c8999726641e74"
+            )),
+            U256::from_be_bytes(hex!(
+                "00000000000000000000000000000000000000008b0f7205ae295a19db465b82"
+            )),
+        ];
+
+        assert_eq!(
+            get_chainworks(&blocks, known_block_chainworks[0]),
+            known_block_chainworks,
+            "Chainwork computation failed"
+        );
+    }
+
     #[test]
     fn test_blockchain_verifies() {
         let initial_block = 858564;
         let block_delta = 3;
         // chainwork of block 858564
-        let intial_block_chainwork = U256::from_be_bytes(hex!(
+        let initial_block_chainwork = U256::from_be_bytes(hex!(
             "00000000000000000000000000000000000000008b0ed4006167d9147181e166"
         ));
         // chainwork of block 858567
@@ -187,6 +220,12 @@ mod tests {
             .map(|block| block.compute_block_hash())
             .collect::<Vec<[u8; 32]>>();
 
+        let chainworks = get_chainworks(&blocks, initial_block_chainwork);
+
+        println!("Chainworks: {:?}", chainworks);
+        println!("Initial Chainwork: {:?}", initial_block_chainwork);
+        println!("Final Chainwork: {:?}", final_block_chainwork);
+
         println!(
             "Block heights {:?}",
             blocks
@@ -200,11 +239,9 @@ mod tests {
 
         assert_blockchain(
             commited_block_hashes,
+            chainworks,
             initial_block,
-            intial_block_chainwork,
             retarget_block.compute_block_hash(),
-            get_retarget_height_from_block_height(initial_block),
-            final_block_chainwork,
             blocks,
             *retarget_block,
         );
@@ -216,6 +253,10 @@ mod tests {
         let block_delta = 2;
         let intial_block_chainwork = U256::from_be_bytes(hex!(
             "000000000000000000000000000000000000000088ee16bb485893eb55b2efe0"
+        ));
+
+        let final_block_chainwork = U256::from_be_bytes(hex!(
+            "000000000000000000000000000000000000000088ee65bdeeb9546e0a952cee"
         ));
 
         let blocks = (0..block_delta)
@@ -230,7 +271,10 @@ mod tests {
             .collect::<Vec<RiftOptimizedBlock>>();
 
         println!("Blocks: {:?}", blocks.len());
-        println!("retarget height {}", get_retarget_height_from_block_height(initial_block));
+        println!(
+            "retarget height {}",
+            get_retarget_height_from_block_height(initial_block)
+        );
 
         let retarget_block = &deserialize::<Block>(&load_hex_bytes(&format!(
             "data/block_{}.hex",
@@ -252,19 +296,16 @@ mod tests {
                 .collect::<Vec<u64>>()
         );
 
-        let final_block_chainwork = blocks
-            .iter()
-            .fold(intial_block_chainwork, |chainwork_acc, block| {
-                block.compute_chainwork(chainwork_acc)
-            });
+        let chainworks = get_chainworks(&blocks, intial_block_chainwork);
+
+        println!("Calculated Chainworks: {:?}", chainworks);
+        println!("Known Chainworks:      {:?}", [intial_block_chainwork, final_block_chainwork]);
 
         assert_blockchain(
             commited_block_hashes,
+            chainworks,
             initial_block,
-            intial_block_chainwork,
             retarget_block.compute_block_hash(),
-            retarget_block.height,
-            final_block_chainwork,
             blocks,
             *retarget_block,
         );

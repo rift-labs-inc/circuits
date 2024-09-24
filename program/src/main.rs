@@ -7,7 +7,6 @@ use rift_core::{validate_rift_transaction, CircuitInput, SolidityPublicValues};
 
 pub fn main() {
     // Read an input to the program.
-    //
     // Behind the scenes, this compiles down to a custom system call which handles reading inputs
     // from the prover.
     let circuit_input = sp1_zkvm::io::read::<CircuitInput>();
@@ -17,6 +16,7 @@ pub fn main() {
     // Encode the public values of the program.
     let bytes = SolidityPublicValues::abi_encode(&SolidityPublicValues {
         natural_txid: FixedBytes::from(circuit_public_input.natural_txid),
+        merkle_root: FixedBytes::from(circuit_public_input.merkle_root),
         lp_reservation_hash: FixedBytes::from(circuit_public_input.lp_reservation_hash),
         order_nonce: FixedBytes::from(circuit_public_input.order_nonce),
         lp_count: circuit_public_input.lp_count,
@@ -26,7 +26,6 @@ pub fn main() {
         safe_chainwork: Uint::from_be_bytes(circuit_public_input.safe_chainwork),
         confirmation_block_height_delta: circuit_public_input.confirmation_block_height_delta,
         confirmation_chainwork: Uint::from_be_bytes(circuit_public_input.confirmation_chainwork),
-        retarget_block_height: circuit_public_input.retarget_block_height,
         block_hashes: circuit_public_input.block_hashes
             [0..(circuit_input.utilized_blocks as usize)]
             .to_vec()
