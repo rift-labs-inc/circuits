@@ -23,15 +23,19 @@ pub fn main() {
         retarget_block_hash: FixedBytes::from(circuit_public_input.retarget_block_hash),
         safe_block_height: circuit_public_input.safe_block_height,
         safe_block_height_delta: circuit_public_input.safe_block_height_delta,
-        safe_chainwork: Uint::from_be_bytes(circuit_public_input.safe_chainwork),
         confirmation_block_height_delta: circuit_public_input.confirmation_block_height_delta,
-        confirmation_chainwork: Uint::from_be_bytes(circuit_public_input.confirmation_chainwork),
         block_hashes: circuit_public_input.block_hashes
             [0..(circuit_input.utilized_blocks as usize)]
             .to_vec()
             .iter()
             .map(|x| FixedBytes::from(*x))
             .collect::<Vec<_>>(),
+        block_chainworks: circuit_input.public_values.block_chainworks
+            [0..(circuit_input.utilized_blocks as usize)]
+            .to_vec()
+            .iter()
+            .map(|chainwork| Uint::from_be_bytes(*chainwork))
+            .collect(),
     });
 
     // Commit to the public values of the program. The final proof will have a commitment to all the
