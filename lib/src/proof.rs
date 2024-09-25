@@ -7,10 +7,8 @@ use crypto_bigint::{Encoding, U256};
 use rift_core::btc_light_client::AsLittleEndianBytes;
 use rift_core::lp::{compute_lp_hash, encode_liquidity_providers, LiquidityReservation};
 
-use crate::transaction::serialize_no_segwit;
-use crate::{
-    generate_merkle_proof_and_root, AsRiftOptimizedBlock,
-};
+use crate::transaction::{get_chainworks, serialize_no_segwit};
+use crate::{generate_merkle_proof_and_root, AsRiftOptimizedBlock};
 use rift_core::{CircuitInput, CircuitPublicValues};
 
 use sp1_sdk::{ExecutionReport, ProverClient, SP1Stdin};
@@ -25,15 +23,14 @@ pub fn build_proof_input(
     retarget_block: &Block,
 ) -> CircuitInput {
     let proposed_block = &blocks[proposed_block_index];
-    let chainworks: Vec<_> = blocks
-        .iter()
-        .map(|block| block.as_rift_optimized_block())
-        .scan(safe_chainwork, |chainwork_acc, block| {
-            *chainwork_acc = block.compute_chainwork(*chainwork_acc);
-            Some(*chainwork_acc)
-        })
-        .map(|chainwork| chainwork.to_be_bytes())
-        .collect();
+
+    let chainworks = get_chainworks(
+        &blocks
+            .iter()
+            .map(|block| block.as_rift_optimized_block())
+            .collect::<Vec<_>>(),
+        safe_chainwork,
+    ).iter().map(|x| x.to_be_bytes()).collect();
 
     let proposed_transaction = proposed_block
         .txdata
