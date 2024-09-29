@@ -18,7 +18,7 @@ mod tests {
     fn test_rift_block_converter() {
         let block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
         let canon_serialized_header = serialize(&block.header);
-        let rift_block = block.as_rift_optimized_block().serialize();
+        let rift_block = block.as_rift_optimized_block_unsafe().serialize();
         assert_eq!(
             canon_serialized_header, rift_block,
             "Rift block serialization failed"
@@ -28,7 +28,7 @@ mod tests {
     #[test]
     fn test_block_hash() {
         let block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
-        let rift_block = &block.as_rift_optimized_block();
+        let rift_block = &block.as_rift_optimized_block_unsafe();
 
         let canon_block_hash = block.header.block_hash().as_byte_array().to_little_endian();
         let rift_block_hash = rift_block.compute_block_hash();
@@ -42,7 +42,7 @@ mod tests {
     #[test]
     fn test_bits_to_target() {
         let block: Block = deserialize(&load_hex_bytes("data/block_858564.hex")).unwrap();
-        let rift_block = &block.as_rift_optimized_block();
+        let rift_block = &block.as_rift_optimized_block_unsafe();
         println!("Bits: {:?}", rift_block.bits);
 
         let canon_target = block.header.target();
@@ -68,7 +68,7 @@ mod tests {
     #[test]
     fn test_assert_pow() {
         let block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
-        let rift_block = &block.as_rift_optimized_block();
+        let rift_block = &block.as_rift_optimized_block_unsafe();
 
         assert_pow(
             &rift_block.compute_block_hash(),
@@ -81,7 +81,7 @@ mod tests {
     #[should_panic(expected = "PoW invalid hash < target")]
     fn test_assert_pow_fails_on_hash_less_than_target() {
         let block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
-        let mut rift_block = block.as_rift_optimized_block();
+        let mut rift_block = block.as_rift_optimized_block_unsafe();
         //  a nonce that will ~100% likely result in a hash less than the target
         rift_block.nonce = [0; 4];
 
@@ -97,8 +97,8 @@ mod tests {
         let first_block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
         let second_block = deserialize::<Block>(&load_hex_bytes("data/block_858565.hex")).unwrap();
 
-        let first_rift_block = first_block.as_rift_optimized_block();
-        let second_rift_block = &second_block.as_rift_optimized_block();
+        let first_rift_block = first_block.as_rift_optimized_block_unsafe();
+        let second_rift_block = &second_block.as_rift_optimized_block_unsafe();
 
         let first_block_hash = first_rift_block.compute_block_hash();
         let second_block_hash = second_rift_block.compute_block_hash();
@@ -109,7 +109,7 @@ mod tests {
             retarget_height
         )))
         .unwrap();
-        let rift_retarget_block = &retarget_block.as_rift_optimized_block();
+        let rift_retarget_block = &retarget_block.as_rift_optimized_block_unsafe();
 
         println!("First Block Hash: {:?}", first_block_hash.as_hex());
 
@@ -128,9 +128,9 @@ mod tests {
         let first_block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
         let second_block = deserialize::<Block>(&load_hex_bytes("data/block_858565.hex")).unwrap();
 
-        let mut first_rift_block = first_block.as_rift_optimized_block();
+        let mut first_rift_block = first_block.as_rift_optimized_block_unsafe();
         first_rift_block.prev_blockhash = [0; 32];
-        let second_rift_block = &second_block.as_rift_optimized_block();
+        let second_rift_block = &second_block.as_rift_optimized_block_unsafe();
 
         let first_block_hash = first_rift_block.compute_block_hash();
         let second_block_hash = second_rift_block.compute_block_hash();
@@ -141,7 +141,7 @@ mod tests {
             retarget_height
         )))
         .unwrap();
-        let rift_retarget_block = &retarget_block.as_rift_optimized_block();
+        let rift_retarget_block = &retarget_block.as_rift_optimized_block_unsafe();
 
         verify_block(
             second_block_hash,
@@ -152,7 +152,6 @@ mod tests {
         )
     }
 
-
     #[test]
     fn test_chainwork_computation() {
         let block_heights = vec![858564, 858565, 858566];
@@ -161,7 +160,7 @@ mod tests {
             .map(|height| {
                 deserialize::<Block>(&load_hex_bytes(&format!("data/block_{}.hex", height)))
                     .unwrap()
-                    .as_rift_optimized_block()
+                    .as_rift_optimized_block_unsafe()
             })
             .collect::<Vec<RiftOptimizedBlock>>();
 
@@ -204,7 +203,7 @@ mod tests {
                     initial_block + i
                 )))
                 .unwrap()
-                .as_rift_optimized_block()
+                .as_rift_optimized_block_unsafe()
             })
             .collect::<Vec<RiftOptimizedBlock>>();
 
@@ -213,7 +212,7 @@ mod tests {
             get_retarget_height_from_block_height(initial_block)
         )))
         .unwrap()
-        .as_rift_optimized_block();
+        .as_rift_optimized_block_unsafe();
 
         let commited_block_hashes = blocks
             .iter()
@@ -266,7 +265,7 @@ mod tests {
                     initial_block + i
                 )))
                 .unwrap()
-                .as_rift_optimized_block()
+                .as_rift_optimized_block_unsafe()
             })
             .collect::<Vec<RiftOptimizedBlock>>();
 
@@ -281,7 +280,7 @@ mod tests {
             get_retarget_height_from_block_height(initial_block)
         )))
         .unwrap()
-        .as_rift_optimized_block();
+        .as_rift_optimized_block_unsafe();
 
         let commited_block_hashes = blocks
             .iter()
@@ -299,7 +298,10 @@ mod tests {
         let chainworks = get_chainworks(&blocks, intial_block_chainwork);
 
         println!("Calculated Chainworks: {:?}", chainworks);
-        println!("Known Chainworks:      {:?}", [intial_block_chainwork, final_block_chainwork]);
+        println!(
+            "Known Chainworks:      {:?}",
+            [intial_block_chainwork, final_block_chainwork]
+        );
 
         assert_blockchain(
             commited_block_hashes,

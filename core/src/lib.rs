@@ -134,7 +134,7 @@ impl CircuitPublicValues {
         safe_block_height_delta: u64,
         confirmation_block_height_delta: u64,
         block_hashes: Vec<[u8; 32]>,
-        block_chainworks: Vec<[u8; 32]> 
+        block_chainworks: Vec<[u8; 32]>,
     ) -> Self {
         let mut padded_block_hashes = [[0u8; 32]; MAX_BLOCKS];
         for (i, block_hash) in block_hashes.iter().enumerate() {
@@ -253,7 +253,11 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
     // Block Verification
     btc_light_client::assert_blockchain(
         circuit_input.public_values.block_hashes[0..(blocks.len() as usize)].to_vec(),
-        circuit_input.public_values.block_chainworks[0..(blocks.len() as usize)].to_vec().iter().map(|x| U256::from_be_slice(x)).collect(),
+        circuit_input.public_values.block_chainworks[0..(blocks.len() as usize)]
+            .to_vec()
+            .iter()
+            .map(|x| U256::from_be_slice(x))
+            .collect(),
         circuit_input.public_values.safe_block_height,
         circuit_input.public_values.retarget_block_hash,
         blocks,

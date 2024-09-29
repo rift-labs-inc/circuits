@@ -17,20 +17,25 @@ pub fn build_proof_input(
     order_nonce: &[u8; 32],
     liquidity_reservations: &Vec<LiquidityReservation>,
     safe_chainwork: U256,
+    safe_block_height: u64,
     blocks: &Vec<Block>,
     proposed_block_index: usize,
     proposed_txid: &[u8; 32],
     retarget_block: &Block,
+    retarget_block_height: u64,
 ) -> CircuitInput {
     let proposed_block = &blocks[proposed_block_index];
 
-    let chainworks = get_chainworks(
-        &blocks
-            .iter()
-            .map(|block| block.as_rift_optimized_block())
-            .collect::<Vec<_>>(),
-        safe_chainwork,
-    ).iter().map(|x| x.to_be_bytes()).collect();
+    let rift_optimized_blocks = &blocks
+        .iter()
+        .zip(safe_block_height..safe_block_height + blocks.len() as u64)
+        .map(|(block, height)| block.as_rift_optimized_block(height))
+        .collect::<Vec<_>>();
+
+    let chainworks = get_chainworks(&rift_optimized_blocks, safe_chainwork)
+        .iter()
+        .map(|x| x.to_be_bytes())
+        .collect();
 
     let proposed_transaction = proposed_block
         .txdata
@@ -106,11 +111,8 @@ pub fn build_proof_input(
         mined_transaction_serialized_no_segwit,
         merkle_proof,
         lp_reservation_data_encoded.to_vec(),
-        blocks
-            .iter()
-            .map(|block| block.as_rift_optimized_block())
-            .collect(),
-        retarget_block.as_rift_optimized_block(),
+        rift_optimized_blocks.to_vec(),
+        retarget_block.as_rift_optimized_block(retarget_block_height),
     )
 }
 

@@ -190,7 +190,8 @@ pub fn assert_blockchain(
     }
 
     assert_eq!(
-        current_chainwork, *commited_block_chainworks.last().unwrap(),
+        current_chainwork,
+        *commited_block_chainworks.last().unwrap(),
         "Chainwork mismatch"
     );
 

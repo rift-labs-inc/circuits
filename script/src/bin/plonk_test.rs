@@ -17,7 +17,6 @@ use sp1_sdk::{ProverClient, SP1Stdin};
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const MAIN_ELF: &[u8] = include_bytes!("../../../elf/riscv32im-succinct-zkvm-elf");
 
-
 fn get_test_case_circuit_input() -> CircuitInput {
     let safe_chainwork = U256::from_be_bytes(hex!(
         "000000000000000000000000000000000000000085ed2ff0a553f14e4d649ce0"
@@ -60,10 +59,12 @@ fn get_test_case_circuit_input() -> CircuitInput {
         &order_nonce,
         &lp_reservations,
         safe_chainwork,
+        mined_blocks.first().unwrap().bip34_block_height().unwrap(),
         &mined_blocks.to_vec(),
         1,
         &mined_txid,
         &mined_retarget_block,
+        mined_retarget_block.bip34_block_height().unwrap(),
     )
 }
 

@@ -80,11 +80,24 @@ pub fn generate_merkle_proof_and_root(
 }
 
 pub trait AsRiftOptimizedBlock {
-    fn as_rift_optimized_block(&self) -> RiftOptimizedBlock;
+    fn as_rift_optimized_block(&self, height: u64) -> RiftOptimizedBlock;
+    fn as_rift_optimized_block_unsafe(&self) -> RiftOptimizedBlock;
 }
 
 impl AsRiftOptimizedBlock for bitcoin::Block {
-    fn as_rift_optimized_block(&self) -> RiftOptimizedBlock {
+    fn as_rift_optimized_block(&self, height: u64) -> RiftOptimizedBlock {
+        RiftOptimizedBlock {
+            height,
+            version: self.header.version.to_consensus().to_le_bytes(),
+            prev_blockhash: self.header.prev_blockhash.to_raw_hash().to_byte_array(),
+            merkle_root: self.header.merkle_root.to_raw_hash().to_byte_array(),
+            time: self.header.time.to_le_bytes(),
+            bits: self.header.bits.to_consensus().to_le_bytes(),
+            nonce: self.header.nonce.to_le_bytes(),
+        }
+    }
+
+    fn as_rift_optimized_block_unsafe(&self) -> RiftOptimizedBlock {
         RiftOptimizedBlock {
             height: self.bip34_block_height().unwrap(),
             version: self.header.version.to_consensus().to_le_bytes(),

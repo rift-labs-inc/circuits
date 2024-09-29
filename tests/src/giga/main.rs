@@ -52,17 +52,15 @@ mod tests {
             deserialize::<Block>(&load_hex_bytes("data/block_854379.hex")).unwrap(),
         ];
 
-        
-        let chainworks: Vec<_> = mined_blocks 
+        let chainworks: Vec<_> = mined_blocks
             .iter()
-            .map(|block| block.as_rift_optimized_block())
+            .map(|block| block.as_rift_optimized_block_unsafe())
             .scan(safe_chainwork, |chainwork_acc, block| {
                 *chainwork_acc = block.compute_chainwork(*chainwork_acc);
                 Some(*chainwork_acc)
             })
             .map(|chainwork| chainwork.to_be_bytes())
             .collect();
-
 
         let mined_block_height = 854374;
         let mined_block = deserialize::<Block>(&load_hex_bytes(
@@ -150,16 +148,15 @@ mod tests {
                     .map(|block| block.header.block_hash().to_byte_array().to_little_endian())
                     .collect(),
                 chainworks,
-
             ),
             mined_transaction_serialized_no_segwit,
             merkle_proof,
             lp_reservation_data_encoded.to_vec(),
             mined_blocks
                 .iter()
-                .map(|block| block.as_rift_optimized_block())
+                .map(|block| block.as_rift_optimized_block_unsafe())
                 .collect(),
-            mined_retarget_block.as_rift_optimized_block(),
+            mined_retarget_block.as_rift_optimized_block_unsafe(),
         )
     }
 
