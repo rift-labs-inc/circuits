@@ -44,13 +44,9 @@ impl Block {
 
     pub fn compute_block_hash(&self) -> [u8; 32] {
         let header = self.serialize();
-        let first_hash = Sha256::digest(&header);
-        let second_hash = Sha256::digest(&first_hash);
-
-        let mut hash = [0u8; 32];
-        hash.copy_from_slice(&second_hash);
-        hash.reverse();
-        hash
+        let first_hash = Sha256::digest(header);
+        let second_hash: [u8; 32] = Sha256::digest(first_hash).into();
+        second_hash.to_little_endian()
     }
 
     pub fn compute_chainwork(&self, previous_block_chainwork: U256) -> U256 {
