@@ -33,7 +33,7 @@ cargo test -p tests --test <test_name>
 
 #### Execute only
 ```
-targo run --release --bin plonk_test -- --execute
+cargo run --release --bin plonk_test -- --execute
 ```
 
 #### Proof Gen
