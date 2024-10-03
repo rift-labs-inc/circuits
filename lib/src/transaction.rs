@@ -140,7 +140,7 @@ pub fn build_rift_payment_transaction(
     // Add OP_RETURN output
     let op_return_script = Builder::new()
         .push_opcode(OP_RETURN)
-        .push_slice(&order_nonce)
+        .push_slice(order_nonce)
         .into_script();
     tx_outs.push(TxOut {
         value: Amount::ZERO,
@@ -179,7 +179,7 @@ pub fn build_rift_payment_transaction(
         output: tx_outs,
     };
 
-    sign_transaction(&mut tx, &wallet, vin_sats)
+    sign_transaction(&mut tx, wallet, vin_sats)
 }
 
 fn sign_transaction(

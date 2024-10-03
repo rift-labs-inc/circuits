@@ -76,16 +76,20 @@ fn assert_payment_utxos_exist(
         data_pointer += (TXID_LEN + VOUT_LEN) as u64;
         let (sig_counter, sig_counter_byte_len) =
             extract_int_from_compint_pointer(data_pointer, txn_data);
-        data_pointer += sig_counter as u64 + sig_counter_byte_len as u64 + SEQUENCE_LEN as u64;
+        data_pointer += sig_counter + sig_counter_byte_len as u64 + SEQUENCE_LEN as u64;
     }
 
     let (output_counter, output_counter_byte_len) =
         extract_int_from_compint_pointer(data_pointer, txn_data);
     assert!(output_counter <= MAX_LIQUIDITY_PROVIDERS as u64);
-    assert!(lp_count + 1 <= output_counter);
+    assert!(lp_count < output_counter);
     data_pointer += output_counter_byte_len as u64;
 
-    for i in 0..MAX_LIQUIDITY_PROVIDERS {
+    for (i, _lp) in reserved_liquidity_providers
+        .iter()
+        .enumerate()
+        .take(MAX_LIQUIDITY_PROVIDERS)
+    {
         if i < lp_count as usize {
             let value = to_int::<8>(grab_bytes_le::<8>(&txn_data[data_pointer as usize..]));
             data_pointer += AMOUNT_LEN as u64;
@@ -96,7 +100,7 @@ fn assert_payment_utxos_exist(
             assert_eq!(sig_counter, 22);
 
             let locking_script =
-                grab_bytes_be_conditional::<22>(txn_data, data_pointer, |i| i < sig_counter as u64);
+                grab_bytes_be_conditional::<22>(txn_data, data_pointer, |i| i < sig_counter);
 
             let expected_sats = reserved_liquidity_providers[i].expected_sats;
 
@@ -124,7 +128,7 @@ fn assert_payment_utxos_exist(
     data_pointer += 1;
 
     let inscribed_order_nonce =
-        grab_bytes_be_conditional::<32>(txn_data, data_pointer, |i| i < sig_counter as u64);
+        grab_bytes_be_conditional::<32>(txn_data, data_pointer, |i| i < sig_counter);
     assert_eq!(inscribed_order_nonce, order_nonce);
 }
 
@@ -134,7 +138,7 @@ pub fn assert_bitcoin_payment(
     order_nonce: [u8; 32],
     lp_count: u64,
 ) {
-    assert!(lp_reservation_data_encoded.len() <= MAX_LIQUIDITY_PROVIDERS as usize);
+    assert!(lp_reservation_data_encoded.len() <= MAX_LIQUIDITY_PROVIDERS);
     let liquidity_providers = decode_liqudity_providers(lp_reservation_data_encoded);
     assert_payment_utxos_exist(
         txn_data_no_segwit,

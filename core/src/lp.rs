@@ -41,7 +41,7 @@ pub fn decode_liqudity_providers(
 }
 
 pub fn encode_liquidity_providers(
-    liquidity_providers: &Vec<LiquidityReservation>,
+    liquidity_providers: &[LiquidityReservation],
 ) -> [[[u8; 32]; 2]; MAX_LIQUIDITY_PROVIDERS] {
     assert!(
         liquidity_providers.len() <= MAX_LIQUIDITY_PROVIDERS,
@@ -59,17 +59,14 @@ pub fn encode_liquidity_providers(
             .copy_from_slice(&liquidity_providers[i].script_pub_key);
     }
 
-    for i in liquidity_providers.len()..MAX_LIQUIDITY_PROVIDERS {
-        liquidity_providers_encoded[i] = [[0u8; 32]; 2];
-    }
+    liquidity_providers_encoded[liquidity_providers.len()..]
+        .iter_mut()
+        .for_each(|lp| *lp = [[0u8; 32]; 2]);
 
     liquidity_providers_encoded
 }
 
-pub fn compute_lp_hash(
-    lp_reservation_data_encoded: &Vec<[[u8; 32]; 2]>,
-    lp_count: u32,
-) -> [u8; 32] {
+pub fn compute_lp_hash(lp_reservation_data_encoded: &[[[u8; 32]; 2]], lp_count: u32) -> [u8; 32] {
     assert!(
         lp_reservation_data_encoded.len() <= MAX_LIQUIDITY_PROVIDERS,
         "Too many liquidity providers"
@@ -86,7 +83,7 @@ pub fn compute_lp_hash(
 
 pub fn assert_lp_hash(
     lp_reservation_hash: [u8; 32],
-    lp_reservation_data_encoded: &Vec<[[u8; 32]; 2]>,
+    lp_reservation_data_encoded: &[[[u8; 32]; 2]],
     lp_count: u32,
 ) {
     assert!(

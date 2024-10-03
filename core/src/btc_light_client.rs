@@ -3,17 +3,14 @@ use crypto_bigint::U256;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub trait AsLittleEndianBytes<const N: usize> {
-    fn to_little_endian(&self) -> [u8; N];
+pub trait AsLittleEndianBytes {
+    fn to_little_endian(self) -> Self;
 }
 
-impl<const N: usize> AsLittleEndianBytes<N> for [u8; N] {
-    fn to_little_endian(&self) -> [u8; N] {
-        let mut output = [0; N];
-        for (i, &byte) in self.iter().enumerate() {
-            output[N - 1 - i] = byte;
-        }
-        output
+impl<const N: usize> AsLittleEndianBytes for [u8; N] {
+    fn to_little_endian(mut self) -> Self {
+        self.reverse();
+        self
     }
 }
 
@@ -164,7 +161,7 @@ pub fn assert_blockchain(
 
         // Change retarget block if necessary
         if next_block.height % 2016 == 0 {
-            last_retarget_block = next_block.clone();
+            last_retarget_block = *next_block;
         }
 
         // assert chainwork is equal to commited chainwork

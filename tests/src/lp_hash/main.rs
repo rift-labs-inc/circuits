@@ -1,13 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use rift_core::lp::{
-        assert_lp_hash, build_hashable_chunk, compute_lp_hash, encode_liquidity_providers,
-        LiquidityReservation,
-    };
+    use rift_core::lp::{assert_lp_hash, encode_liquidity_providers, LiquidityReservation};
 
     use hex_literal::hex;
-
-    use sha2::{Digest, Sha256};
 
     #[test]
     fn test_assert_lp_hash() {
@@ -21,6 +16,6 @@ mod tests {
         let expected_vault_hash: [u8; 32] =
             hex!("511b6e0b655b765a6407d8475eb61a9619bde367bebc51fdd5f93e6d5474ee4d");
 
-        assert_lp_hash(expected_vault_hash, &encoded_lps.to_vec(), 1);
+        assert_lp_hash(expected_vault_hash, &encoded_lps, 1);
     }
 }

@@ -72,7 +72,7 @@ mod tests {
 
         assert_pow(
             &rift_block.compute_block_hash(),
-            &rift_block,
+            rift_block,
             bits_to_target(rift_block.bits),
         );
     }
@@ -116,8 +116,8 @@ mod tests {
         verify_block(
             second_block_hash,
             first_block_hash,
-            &second_rift_block,
-            &rift_retarget_block,
+            second_rift_block,
+            rift_retarget_block,
             first_rift_block.height,
         )
     }
@@ -146,15 +146,15 @@ mod tests {
         verify_block(
             second_block_hash,
             first_block_hash,
-            &second_rift_block,
-            &rift_retarget_block,
+            second_rift_block,
+            rift_retarget_block,
             first_rift_block.height,
         )
     }
 
     #[test]
     fn test_chainwork_computation() {
-        let block_heights = vec![858564, 858565, 858566];
+        let block_heights = [858564, 858565, 858566];
         let blocks = block_heights
             .iter()
             .map(|height| {

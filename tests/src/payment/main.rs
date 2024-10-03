@@ -6,7 +6,6 @@ mod tests {
 
     use bitcoin::Block;
 
-    use crypto_bigint::U256;
     use hex_literal::hex;
 
     use rift_core::btc_light_client::AsLittleEndianBytes;
@@ -26,11 +25,11 @@ mod tests {
 
     #[test]
     fn test_compint() {
-        assert!(0x01 == compint_to_u64([0x01 as u8]));
+        assert!(0x01 == compint_to_u64([0x01_u8]));
 
-        assert!(0xFC == compint_to_u64([0xFC as u8]));
+        assert!(0xFC == compint_to_u64([0xFC_u8]));
 
-        assert!(0xF1 == compint_to_u64([0xF1 as u8]));
+        assert!(0xF1 == compint_to_u64([0xF1_u8]));
 
         assert!(0xCDAB == compint_to_u64([0xFD, 0xAB, 0xCD]));
 
@@ -103,7 +102,7 @@ mod tests {
             order_nonce,
             &lp_reservations,
             utilized_txid,
-            &utilized_transaction,
+            utilized_transaction,
             txvout,
             &wallet,
             1100,

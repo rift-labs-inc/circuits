@@ -27,7 +27,7 @@ mod tests {
     fn test_hash_loaded_block() {
         let block = deserialize::<Block>(&load_hex_bytes("data/block_858564.hex")).unwrap();
         let tx = block.txdata.first().unwrap();
-        let tx_nosegwit = serialize_no_segwit(&tx);
+        let tx_nosegwit = serialize_no_segwit(tx);
         let hash = get_natural_txid(&tx_nosegwit);
         assert!(tx.compute_txid().as_raw_hash().to_byte_array() == hash);
     }

@@ -89,7 +89,7 @@ pub fn build_transaction_proof_input(
                 .to_byte_array()
                 .to_little_endian(),
             compute_lp_hash(
-                &lp_reservation_data_encoded.to_vec(),
+                &lp_reservation_data_encoded,
                 liquidity_reservations.len() as u32,
             ),
             *order_nonce,

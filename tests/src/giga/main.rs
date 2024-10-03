@@ -14,7 +14,6 @@ mod tests {
 
     use rift_core::btc_light_client::AsLittleEndianBytes;
     use rift_core::{validate_rift_transaction, CircuitInput, CircuitPublicValues};
-    use rift_lib::proof::build_block_proof_input;
     use rift_lib::transaction::serialize_no_segwit;
     use rift_lib::{
         generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes,
@@ -87,7 +86,7 @@ mod tests {
             "Mined transaction not found in the block"
         );
         let mined_transaction = mined_transaction.unwrap();
-        let mined_transaction_serialized_no_segwit = serialize_no_segwit(&mined_transaction);
+        let mined_transaction_serialized_no_segwit = serialize_no_segwit(mined_transaction);
 
         let txn = mined_transaction
             .compute_txid()
@@ -130,10 +129,7 @@ mod tests {
                     .merkle_root
                     .to_byte_array()
                     .to_little_endian(),
-                compute_lp_hash(
-                    &lp_reservation_data_encoded.to_vec(),
-                    lp_reservations.len() as u32,
-                ),
+                compute_lp_hash(&lp_reservation_data_encoded, lp_reservations.len() as u32),
                 order_nonce,
                 lp_reservations.len() as u64,
                 mined_retarget_block
