@@ -85,11 +85,12 @@ pub struct CircuitPublicValues {
     pub block_hashes: [[u8; 32]; MAX_BLOCKS],
     #[serde(with = "arrays")]
     pub block_chainworks: [[u8; 32]; MAX_BLOCKS],
+    pub is_transaction_proof: bool,
 }
 
 sol! {
     /// The public values encoded as a struct that can be easily deserialized inside Solidity.
-    struct SolidityPublicValues {
+    struct ProofPublicInputs {
         bytes32 natural_txid;
         bytes32 merkle_root;
         bytes32 lp_reservation_hash;
@@ -101,7 +102,9 @@ sol! {
         uint64 confirmation_block_height_delta;
         bytes32[] block_hashes;
         uint256[] block_chainworks;
+        bool is_transaction_proof;
     }
+
 }
 
 impl Default for CircuitPublicValues {
@@ -118,6 +121,7 @@ impl Default for CircuitPublicValues {
             confirmation_block_height_delta: 0,
             block_hashes: [[0u8; 32]; MAX_BLOCKS],
             block_chainworks: [[0u8; 32]; MAX_BLOCKS],
+            is_transaction_proof: false,
         }
     }
 }
@@ -135,6 +139,7 @@ impl CircuitPublicValues {
         confirmation_block_height_delta: u64,
         block_hashes: Vec<[u8; 32]>,
         block_chainworks: Vec<[u8; 32]>,
+        is_transaction_proof: bool,
     ) -> Self {
         let mut padded_block_hashes = [[0u8; 32]; MAX_BLOCKS];
         for (i, block_hash) in block_hashes.iter().enumerate() {
@@ -156,6 +161,7 @@ impl CircuitPublicValues {
             confirmation_block_height_delta,
             block_hashes: padded_block_hashes,
             block_chainworks: padded_block_chainworks,
+            is_transaction_proof,
         }
     }
 }
@@ -249,11 +255,43 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
     let lp_reservation_data = circuit_input.lp_reservation_data
         [0..(circuit_input.utilized_lp_reservation_data as usize)]
         .to_vec();
+    if circuit_input.public_values.is_transaction_proof {
+        let mut txid = tx_hash::get_natural_txid(&txn_data_no_segwit);
+        txid.reverse();
+
+        // Transaction Hash Verification
+        assert_eq!(
+            txid, circuit_input.public_values.natural_txid,
+            "Invalid transaction hash"
+        );
+
+        // Transaction Inclusion Verification
+        sha256_merkle::assert_merkle_proof_equality(
+            circuit_input.public_values.merkle_root,
+            circuit_input.public_values.natural_txid,
+            &merkle_proof,
+        );
+
+        // LP Hash Verification
+        lp::assert_lp_hash(
+            circuit_input.public_values.lp_reservation_hash,
+            &lp_reservation_data,
+            circuit_input.public_values.lp_count as u32,
+        );
+
+        // Payment Verification
+        payment::assert_bitcoin_payment(
+            &txn_data_no_segwit,
+            lp_reservation_data,
+            circuit_input.public_values.order_nonce,
+            circuit_input.public_values.lp_count,
+        );
+    }
 
     // Block Verification
     btc_light_client::assert_blockchain(
-        circuit_input.public_values.block_hashes[0..(blocks.len() as usize)].to_vec(),
-        circuit_input.public_values.block_chainworks[0..(blocks.len() as usize)]
+        circuit_input.public_values.block_hashes[0..(blocks.len())].to_vec(),
+        circuit_input.public_values.block_chainworks[0..(blocks.len())]
             .to_vec()
             .iter()
             .map(|x| U256::from_be_slice(x))
@@ -262,37 +300,6 @@ pub fn validate_rift_transaction(circuit_input: CircuitInput) -> CircuitPublicVa
         circuit_input.public_values.retarget_block_hash,
         blocks,
         circuit_input.retarget_block,
-    );
-
-    let mut txid = tx_hash::get_natural_txid(&txn_data_no_segwit);
-    txid.reverse();
-
-    // Transaction Hash Verification
-    assert_eq!(
-        txid, circuit_input.public_values.natural_txid,
-        "Invalid transaction hash"
-    );
-
-    // Transaction Inclusion Verification
-    sha256_merkle::assert_merkle_proof_equality(
-        circuit_input.public_values.merkle_root,
-        circuit_input.public_values.natural_txid,
-        &merkle_proof,
-    );
-
-    // LP Hash Verification
-    lp::assert_lp_hash(
-        circuit_input.public_values.lp_reservation_hash,
-        &lp_reservation_data,
-        circuit_input.public_values.lp_count as u32,
-    );
-
-    // Payment Verification
-    payment::assert_bitcoin_payment(
-        &txn_data_no_segwit,
-        lp_reservation_data,
-        circuit_input.public_values.order_nonce,
-        circuit_input.public_values.lp_count,
     );
 
     circuit_input.public_values

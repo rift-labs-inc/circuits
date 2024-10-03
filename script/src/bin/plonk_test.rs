@@ -8,7 +8,7 @@ use hex_literal::hex;
 use rift_core::lp::LiquidityReservation;
 
 use rift_core::CircuitInput;
-use rift_lib::proof::build_proof_input;
+use rift_lib::proof::build_transaction_proof_input;
 use rift_lib::{get_retarget_height_from_block_height, load_hex_bytes, to_hex_string};
 
 use clap::Parser;
@@ -55,12 +55,12 @@ fn get_test_case_circuit_input() -> CircuitInput {
     ))
     .unwrap();
 
-    build_proof_input(
+    build_transaction_proof_input(
         &order_nonce,
         &lp_reservations,
         safe_chainwork,
         mined_blocks.first().unwrap().bip34_block_height().unwrap(),
-        &mined_blocks.to_vec(),
+        &mined_blocks,
         1,
         &mined_txid,
         &mined_retarget_block,

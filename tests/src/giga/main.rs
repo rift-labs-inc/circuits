@@ -14,6 +14,7 @@ mod tests {
 
     use rift_core::btc_light_client::AsLittleEndianBytes;
     use rift_core::{validate_rift_transaction, CircuitInput, CircuitPublicValues};
+    use rift_lib::proof::build_block_proof_input;
     use rift_lib::transaction::serialize_no_segwit;
     use rift_lib::{
         generate_merkle_proof_and_root, get_retarget_height_from_block_height, load_hex_bytes,
@@ -148,6 +149,7 @@ mod tests {
                     .map(|block| block.header.block_hash().to_byte_array().to_little_endian())
                     .collect(),
                 chainworks,
+                true,
             ),
             mined_transaction_serialized_no_segwit,
             merkle_proof,
@@ -184,5 +186,63 @@ mod tests {
         println!("Deserialization successful!");
 
         println!("Serialization test passed successfully!");
+    }
+
+    #[test]
+    fn test_mainnet_block_proof() {
+        use rift_lib::proof::build_block_proof_input;
+
+        let safe_chainwork = U256::from_be_bytes(hex!(
+            "000000000000000000000000000000000000000085ed2ff0a553f14e4d649ce0"
+        ));
+
+        let mined_blocks = [
+            deserialize::<Block>(&load_hex_bytes("data/block_854373.hex")).unwrap(),
+            deserialize::<Block>(&load_hex_bytes("data/block_854374.hex")).unwrap(),
+            deserialize::<Block>(&load_hex_bytes("data/block_854375.hex")).unwrap(),
+            deserialize::<Block>(&load_hex_bytes("data/block_854376.hex")).unwrap(),
+            deserialize::<Block>(&load_hex_bytes("data/block_854377.hex")).unwrap(),
+            deserialize::<Block>(&load_hex_bytes("data/block_854378.hex")).unwrap(),
+            deserialize::<Block>(&load_hex_bytes("data/block_854379.hex")).unwrap(),
+        ];
+
+        let safe_block_height = mined_blocks[0].bip34_block_height().unwrap();
+        let retarget_block_height = get_retarget_height_from_block_height(safe_block_height);
+        let retarget_block = deserialize::<Block>(&load_hex_bytes(
+            format!("data/block_{retarget_block_height}.hex").as_str(),
+        ))
+        .unwrap();
+
+        let circuit_input = build_block_proof_input(
+            safe_chainwork,
+            safe_block_height,
+            &mined_blocks,
+            &retarget_block,
+            retarget_block_height,
+        );
+
+        // Verify that the circuit input is created correctly
+        assert_eq!(
+            circuit_input.public_values.safe_block_height,
+            safe_block_height
+        );
+        assert_eq!(
+            circuit_input.public_values.confirmation_block_height_delta,
+            mined_blocks.len() as u64 - 1
+        );
+        assert_eq!(circuit_input.utilized_blocks, mined_blocks.len() as u64);
+
+        // Verify that the retarget block is set correctly
+        assert_eq!(
+            circuit_input.retarget_block.compute_block_hash(),
+            retarget_block
+                .as_rift_optimized_block_unsafe()
+                .compute_block_hash()
+        );
+
+        // Verify that the is_transaction_proof flag is set to false
+        assert!(!circuit_input.public_values.is_transaction_proof);
+
+        println!("Block proof input generated and verified successfully.");
     }
 }

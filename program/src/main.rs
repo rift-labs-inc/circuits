@@ -3,7 +3,7 @@ sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::private::{FixedBytes, Uint};
 use alloy_sol_types::SolType;
-use rift_core::{validate_rift_transaction, CircuitInput, SolidityPublicValues};
+use rift_core::{validate_rift_transaction, CircuitInput, ProofPublicInputs};
 
 pub fn main() {
     // Read an input to the program.
@@ -14,7 +14,7 @@ pub fn main() {
     let circuit_public_input = validate_rift_transaction(circuit_input);
 
     // Encode the public values of the program.
-    let bytes = SolidityPublicValues::abi_encode(&SolidityPublicValues {
+    let bytes = ProofPublicInputs::abi_encode(&ProofPublicInputs {
         natural_txid: FixedBytes::from(circuit_public_input.natural_txid),
         merkle_root: FixedBytes::from(circuit_public_input.merkle_root),
         lp_reservation_hash: FixedBytes::from(circuit_public_input.lp_reservation_hash),
@@ -36,6 +36,7 @@ pub fn main() {
             .iter()
             .map(|chainwork| Uint::from_be_bytes(*chainwork))
             .collect(),
+        is_transaction_proof: circuit_public_input.is_transaction_proof,
     });
 
     // Commit to the public values of the program. The final proof will have a commitment to all the
