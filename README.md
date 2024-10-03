@@ -19,7 +19,7 @@
 
 ### Run Unit Tests
 ```sh
-./download_test_blocks.s
+./download_test_blocks.sh
 cargo test -p tests
 ```
 
@@ -46,11 +46,8 @@ cargo run --release --bin plonk_test
 cd program && cargo prove build && cd ..
 ```
 
-### Retrieve the Verification Key
-
-To retrieve your `programVKey` for your on-chain contract, run the following command:
+### Compute the Verification Key
 
 ```sh
 cargo run --release --bin vkey
 ```
-
