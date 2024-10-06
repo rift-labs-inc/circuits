@@ -30,18 +30,11 @@ pub fn assert_merkle_proof_equality(
     proposed_merkle_proof: &[MerkleProofStep],
 ) {
     let mut current_hash: [u8; 32] = proposed_txn_hash;
-
-    let zero_hash = [0; 32];
-    let mut count = 0;
-    for i in 0..proposed_merkle_proof.len() {
-        if proposed_merkle_proof[i].hash != zero_hash {
-            let proof_step = proposed_merkle_proof[count];
-            if proof_step.direction {
-                current_hash = hash_pairs(current_hash, proof_step.hash);
-            } else {
-                current_hash = hash_pairs(proof_step.hash, current_hash);
-            }
-            count += 1;
+    for proof_step in proposed_merkle_proof {
+        if proof_step.direction {
+            current_hash = hash_pairs(current_hash, proof_step.hash);
+        } else {
+            current_hash = hash_pairs(proof_step.hash, current_hash);
         }
     }
     assert!(
