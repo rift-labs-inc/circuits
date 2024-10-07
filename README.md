@@ -1,4 +1,5 @@
 # circuits 
+**DEPRECATED, all protocol code now located [here](https://github.com/rift-labs-inc/protocol)** <br> <br>
 
 ## Requirements
 
